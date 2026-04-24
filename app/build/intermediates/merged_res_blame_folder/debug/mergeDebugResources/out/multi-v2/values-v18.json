@@ -1,0 +1,19 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.dumpdiary.app-mergeDebugResources-71:/values-v18/values-v18.xml",
+            "map": [
+                {
+                    "source": "/Users/zhengxiqiao/.gradle/caches/8.10.2/transforms/43830a20964bba6c63c8bdd62c4e3a87/transformed/appcompat-1.7.0/res/values-v18/values-v18.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endColumns": "48",
+                        "endOffsets": "99"
+                    }
+                }
+            ]
+        }
+    ]
+}

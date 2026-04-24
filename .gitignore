@@ -1,0 +1,7 @@
+.DS_Store
+.gradle/
+.kotlin/
+backend/.env
+backend/data/
+backend/backend.pid
+backend/backend.log

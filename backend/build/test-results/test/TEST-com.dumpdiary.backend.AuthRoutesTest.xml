@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.dumpdiary.backend.AuthRoutesTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-04-21T15:25:09" hostname="zhengqianqiaodeMacBook-Air.local" time="2.813">
+  <properties/>
+  <testcase name="register_flow_returns_tokens" classname="com.dumpdiary.backend.AuthRoutesTest" time="2.813"/>
+  <system-out><![CDATA[23:25:10.074 [DefaultDispatcher-worker-1 @call-context#2] INFO ktor.test -- No ktor.deployment.watch patterns specified, automatic reload is not active.
+23:25:10.174 [DefaultDispatcher-worker-1 @call-context#2] INFO ktor.test -- Application started in 0.109 seconds.
+23:25:10.175 [DefaultDispatcher-worker-1 @call-context#2] INFO ktor.test -- Application started: io.ktor.server.application.Application@3cbf4cf6
+23:25:10.176 [DefaultDispatcher-worker-3 @coroutine#4] INFO ktor.test -- Responding at http://localhost:80
+23:25:10.176 [DefaultDispatcher-worker-3 @coroutine#4] INFO ktor.test -- Responding at https://localhost:443
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
