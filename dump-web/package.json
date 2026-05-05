@@ -2,7 +2,7 @@
   "name": "dump-diary",
   "private": true,
   "version": "0.0.0",
-  "homepage": "https://zsissy.github.io/dump-diary",
+  "homepage": "https://zsissy.github.io/DumpDiary",
   "type": "module",
   "scripts": {
     "dev": "vite",
