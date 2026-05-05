@@ -131,27 +131,53 @@ function StatsCharts({ ownLogs = [], partnerLogs = [], viewMode = 'monthly' }) {
     }
     const chart = hourInstanceRef.current
 
-    const buckets = new Array(24).fill(0)
-    ownLogs.forEach((log) => {
-      if (log.time) {
-        const h = parseInt(log.time.split(':')[0], 10)
-        if (h >= 0 && h < 24) buckets[h]++
-      }
-    })
+    const getHourBuckets = (logs) => {
+      const buckets = new Array(24).fill(0)
+      logs.forEach((log) => {
+        if (log.time) {
+          const h = parseInt(log.time.split(':')[0], 10)
+          if (h >= 0 && h < 24) buckets[h]++
+        }
+      })
+      return buckets
+    }
+
+    const OWN_COLOR = '#F4A5B8'
+    const PARTNER_COLOR = '#8ECAE6'
+
+    const hourSeries = [
+      {
+        name: '我',
+        type: 'bar',
+        data: getHourBuckets(ownLogs),
+        itemStyle: { color: OWN_COLOR, borderRadius: [4, 4, 0, 0] },
+        barMaxWidth: 20,
+      },
+    ]
+    if (hasPartner) {
+      hourSeries.push({
+        name: '伴侣',
+        type: 'bar',
+        data: getHourBuckets(partnerLogs),
+        itemStyle: { color: PARTNER_COLOR, borderRadius: [4, 4, 0, 0] },
+        barMaxWidth: 20,
+      })
+    }
 
     const xLabels = Array.from({ length: 24 }, (_, i) => `${i}:00`)
     chart.setOption({
       tooltip: { trigger: 'axis' },
-      grid: { left: 12, right: 12, top: 12, bottom: 28 },
+      legend: hasPartner ? { data: ['我', '伴侣'], bottom: 0, textStyle: { color: '#8B7355', fontSize: 11 } } : undefined,
+      grid: { left: 12, right: 12, top: 12, bottom: hasPartner ? 36 : 28 },
       xAxis: { type: 'category', data: xLabels, axisLabel: { color: '#8B7355', fontSize: 10, interval: 3 } },
-      yAxis: { type: 'value', axisLabel: { color: '#8B7355' }, splitLine: { lineStyle: { color: '#EDE3D4' } } },
-      series: [{ type: 'bar', data: buckets, itemStyle: { color: '#D4A76A', borderRadius: [4, 4, 0, 0] } }],
+      yAxis: { type: 'value', axisLabel: { color: '#8B7355' }, splitLine: { lineStyle: { color: '#EDE3D4' } }, minInterval: 1 },
+      series: hourSeries,
     }, { notMerge: true })
 
     const handleResize = () => chart.resize()
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
-  }, [ownLogs])
+  }, [ownLogs, partnerLogs, hasPartner])
 
   useEffect(() => {
     return () => {
