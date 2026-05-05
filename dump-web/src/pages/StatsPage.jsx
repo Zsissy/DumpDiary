@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { useDumpDiary } from '../context/DumpDiaryContext.jsx'
+import { useDumpDiary, computeStats as computeStatsLocal } from '../context/DumpDiaryContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import StatsCharts from '../components/StatsCharts.jsx'
 import { getBristolType } from '../lib/bristol.js'
@@ -29,10 +29,11 @@ function StatsPage() {
   const [showPartner, setShowPartner] = useState(hasPartner)
 
   const ownLogs = useMemo(() => {
-    return viewMode === 'monthly'
+    const all = viewMode === 'monthly'
       ? getLogsByMonth(selectedYear, selectedMonth)
       : getLogsByYear(selectedYear)
-  }, [viewMode, selectedYear, selectedMonth, getLogsByMonth, getLogsByYear, bowelLogs])
+    return all.filter((l) => l.userId === user?.id)
+  }, [viewMode, selectedYear, selectedMonth, getLogsByMonth, getLogsByYear, bowelLogs, user?.id])
 
   const partnerLogs = useMemo(() => {
     if (!showPartner || !hasPartner) return []
@@ -43,10 +44,8 @@ function StatsPage() {
   }, [showPartner, hasPartner, viewMode, selectedYear, selectedMonth, getPartnerLogs, bowelLogs])
 
   const ownStats = useMemo(() => {
-    return viewMode === 'monthly'
-      ? getStatsByMonth(selectedYear, selectedMonth)
-      : getStatsByYear(selectedYear)
-  }, [viewMode, selectedYear, selectedMonth, getStatsByMonth, getStatsByYear, bowelLogs])
+    return computeStatsLocal(ownLogs)
+  }, [ownLogs])
 
   const mostCommon = getBristolType(ownStats.mostCommonType)
   const hourLabel = ownStats.peakHour !== null

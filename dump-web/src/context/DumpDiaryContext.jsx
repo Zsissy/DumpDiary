@@ -395,7 +395,7 @@ export function useDumpDiary() {
   return context
 }
 
-function computeStats(logs) {
+export function computeStats(logs) {
   if (!logs.length) {
     return {
       totalCount: 0,
