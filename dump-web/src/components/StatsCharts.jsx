@@ -46,11 +46,26 @@ function StatsCharts({ ownLogs = [], partnerLogs = [], viewMode = 'monthly' }) {
       ? Array.from({ length: 31 }, (_, i) => `${i + 1}日`)
       : Array.from({ length: 12 }, (_, i) => `${i + 1}月`)
 
+    const OWN_COLOR = '#F4A5B8'
+    const PARTNER_COLOR = '#8ECAE6'
+
     const series = [
-      { name: '我', type: 'line', data: getData(ownLogs), smooth: true, lineStyle: { color: '#C49A6C' }, itemStyle: { color: '#C49A6C' } },
+      {
+        name: '我',
+        type: 'bar',
+        data: getData(ownLogs),
+        itemStyle: { color: OWN_COLOR, borderRadius: [4, 4, 0, 0] },
+        barMaxWidth: 24,
+      },
     ]
     if (hasPartner) {
-      series.push({ name: '伴侣', type: 'line', data: getData(partnerLogs), smooth: true, lineStyle: { color: '#7BA7BC' }, itemStyle: { color: '#7BA7BC' } })
+      series.push({
+        name: '伴侣',
+        type: 'bar',
+        data: getData(partnerLogs),
+        itemStyle: { color: PARTNER_COLOR, borderRadius: [4, 4, 0, 0] },
+        barMaxWidth: 24,
+      })
     }
 
     chart.setOption({
@@ -58,7 +73,12 @@ function StatsCharts({ ownLogs = [], partnerLogs = [], viewMode = 'monthly' }) {
       legend: { data: series.map((s) => s.name), bottom: 0, textStyle: { color: '#8B7355' } },
       grid: { left: 12, right: 12, top: 12, bottom: 36 },
       xAxis: { type: 'category', data: xLabels, axisLabel: { color: '#8B7355', fontSize: 11 } },
-      yAxis: { type: 'value', axisLabel: { color: '#8B7355' }, splitLine: { lineStyle: { color: '#EDE3D4' } } },
+      yAxis: {
+        type: 'value',
+        axisLabel: { color: '#8B7355' },
+        splitLine: { lineStyle: { color: '#EDE3D4' } },
+        minInterval: 1,
+      },
       series,
     }, { notMerge: true })
 
