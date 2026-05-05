@@ -21,6 +21,8 @@ function SettingsPage() {
   const [matchCodeInput, setMatchCodeInput] = useState(user?.matchCode || '')
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
+  const [showCurPwd, setShowCurPwd] = useState(false)
+  const [showNewPwd, setShowNewPwd] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
@@ -107,18 +109,28 @@ function SettingsPage() {
         <section className="settings-card">
           <h3>修改密码</h3>
           <div className="settings-col">
-            <input
-              type="password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              placeholder="当前密码"
-            />
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="新密码（至少6位）"
-            />
+            <div className="pwd-wrap">
+              <input
+                type={showCurPwd ? 'text' : 'password'}
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="当前密码"
+              />
+              <button type="button" className="pwd-toggle" onClick={() => setShowCurPwd((v) => !v)} tabIndex={-1}>
+                <span className="material-symbols-outlined">{showCurPwd ? 'visibility_off' : 'visibility'}</span>
+              </button>
+            </div>
+            <div className="pwd-wrap">
+              <input
+                type={showNewPwd ? 'text' : 'password'}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="新密码（至少6位）"
+              />
+              <button type="button" className="pwd-toggle" onClick={() => setShowNewPwd((v) => !v)} tabIndex={-1}>
+                <span className="material-symbols-outlined">{showNewPwd ? 'visibility_off' : 'visibility'}</span>
+              </button>
+            </div>
             <button type="button" className="primary" onClick={handleUpdatePassword}>
               修改密码
             </button>

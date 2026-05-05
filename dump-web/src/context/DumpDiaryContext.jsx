@@ -273,6 +273,29 @@ export function DumpDiaryProvider({ children }) {
     }
   }, [isAuthenticated, isRoomReady, roomCode])
 
+  const refreshRoom = useCallback(async () => {
+    setIsRoomSyncing(true)
+    try {
+      if (IS_CLOUD_MODE && supabase && isAuthenticated) {
+        const remote = await fetchCloudRoom(roomCode)
+        const local = await readCachedRoom(roomCode)
+        const nextRoom = pickNewerRoomData(remote, local)
+        skipNextCloudWriteRef.current = true
+        lastRemoteUpdatedAtRef.current = remote.updatedAt || ''
+        setBowelLogs(nextRoom.bowelLogs)
+        writeCachedRoom(roomCode, nextRoom)
+        setRoomSyncError('')
+      } else {
+        const local = await readCachedRoom(roomCode)
+        setBowelLogs(local.bowelLogs)
+      }
+    } catch {
+      setRoomSyncError('刷新失败，请稍后重试。')
+    } finally {
+      setIsRoomSyncing(false)
+    }
+  }, [isAuthenticated, roomCode])
+
   const addBowelLog = useCallback((entry) => {
     const now = new Date().toISOString()
     const newLog = {
@@ -341,6 +364,7 @@ export function DumpDiaryProvider({ children }) {
       addBowelLog,
       updateBowelLog,
       deleteBowelLog,
+      refreshRoom,
       getLogsByDate,
       getLogsByMonth,
       getLogsByYear,
@@ -350,7 +374,7 @@ export function DumpDiaryProvider({ children }) {
     }),
     [
       bowelLogs, isRoomReady, isRoomSyncing, roomSyncError,
-      addBowelLog, updateBowelLog, deleteBowelLog,
+      addBowelLog, updateBowelLog, deleteBowelLog, refreshRoom,
       getLogsByDate, getLogsByMonth, getLogsByYear,
       getStatsByMonth, getStatsByYear, getPartnerLogs,
     ],

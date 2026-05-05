@@ -189,6 +189,40 @@
   border-color: var(--accent);
 }
 
+.pwd-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.pwd-wrap input {
+  padding-right: 44px;
+}
+
+.pwd-toggle {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  border-radius: 8px;
+  transition: color 0.2s;
+}
+
+.pwd-toggle:hover {
+  color: var(--ink);
+}
+
+.pwd-toggle span {
+  font-size: 20px;
+}
+
 .upload-dropzone {
   display: flex;
   flex-direction: column;
@@ -960,6 +994,116 @@ button.small {
   color: var(--muted);
   padding: 40px 0;
   font-size: 14px;
+}
+
+/* ===== Log List ===== */
+.log-list-section {
+  margin-top: 24px;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 12px;
+  color: var(--ink);
+}
+
+.log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.log-list-item {
+  background: var(--card);
+  border-radius: 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: opacity 0.3s;
+}
+
+.log-list-item.deleting {
+  opacity: 0.4;
+}
+
+.log-item-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.log-item-date {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.log-item-time {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.log-item-user {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.log-item-type {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.log-item-dur {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.log-item-symptoms {
+  font-size: 12px;
+  color: var(--accent-deep);
+}
+
+.log-item-notes {
+  font-size: 12px;
+  color: var(--muted);
+  font-style: italic;
+  flex-basis: 100%;
+  margin-top: 2px;
+}
+
+.log-del-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.log-del-btn:hover {
+  color: #c0392b;
+  background: #fdecea;
+}
+
+.log-del-btn span {
+  font-size: 18px;
 }
 
 /* ===== Responsive ===== */

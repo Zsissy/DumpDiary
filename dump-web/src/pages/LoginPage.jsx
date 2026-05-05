@@ -25,6 +25,8 @@ function LoginPage() {
   const [regNickname, setRegNickname] = useState('')
   const [regMatchCode, setRegMatchCode] = useState('')
   const [regAvatar, setRegAvatar] = useState('')
+  const [showPwd, setShowPwd] = useState(false)
+  const [showRegPwd, setShowRegPwd] = useState(false)
   const [error, setError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -126,14 +128,19 @@ function LoginPage() {
               autoComplete="username"
               disabled={isSubmitting}
             />
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="密码"
-              autoComplete="current-password"
-              disabled={isSubmitting}
-            />
+            <div className="pwd-wrap">
+              <input
+                type={showPwd ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="密码"
+                autoComplete="current-password"
+                disabled={isSubmitting}
+              />
+              <button type="button" className="pwd-toggle" onClick={() => setShowPwd((v) => !v)} tabIndex={-1}>
+                <span className="material-symbols-outlined">{showPwd ? 'visibility_off' : 'visibility'}</span>
+              </button>
+            </div>
             <input
               value={matchCode}
               onChange={(e) => setMatchCode(e.target.value)}
@@ -160,14 +167,19 @@ function LoginPage() {
               autoComplete="nickname"
               disabled={isSubmitting}
             />
-            <input
-              type="password"
-              value={regPassword}
-              onChange={(e) => setRegPassword(e.target.value)}
-              placeholder="密码（至少6位）"
-              autoComplete="new-password"
-              disabled={isSubmitting}
-            />
+            <div className="pwd-wrap">
+              <input
+                type={showRegPwd ? 'text' : 'password'}
+                value={regPassword}
+                onChange={(e) => setRegPassword(e.target.value)}
+                placeholder="密码（至少6位）"
+                autoComplete="new-password"
+                disabled={isSubmitting}
+              />
+              <button type="button" className="pwd-toggle" onClick={() => setShowRegPwd((v) => !v)} tabIndex={-1}>
+                <span className="material-symbols-outlined">{showRegPwd ? 'visibility_off' : 'visibility'}</span>
+              </button>
+            </div>
             <input
               value={regMatchCode}
               onChange={(e) => setRegMatchCode(e.target.value)}
