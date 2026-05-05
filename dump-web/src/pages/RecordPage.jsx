@@ -3,12 +3,20 @@ import { useDumpDiary } from '../context/DumpDiaryContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import Calendar from '../components/Calendar.jsx'
 import BristolScale from '../components/BristolScale.jsx'
-import { SYMPTOM_TAGS } from '../lib/bristol.js'
+import { SYMPTOM_TAGS, getBristolType } from '../lib/bristol.js'
 import { todayKey } from '../lib/date.js'
+
+const OWN_COLOR = '#F4A5B8'
+const PARTNER_COLOR = '#8ECAE6'
+
+function formatTimeShort(timeStr) {
+  if (!timeStr) return ''
+  return timeStr.slice(0, 5)
+}
 
 function RecordPage() {
   const { user } = useAuth()
-  const { bowelLogs, addBowelLog, updateBowelLog, deleteBowelLog, getLogsByDate } = useDumpDiary()
+  const { bowelLogs, addBowelLog, updateBowelLog, deleteBowelLog } = useDumpDiary()
 
   const [selectedDate, setSelectedDate] = useState(() => todayKey())
   const [time, setTime] = useState('')
@@ -16,36 +24,57 @@ function RecordPage() {
   const [bristolType, setBristolType] = useState(null)
   const [symptoms, setSymptoms] = useState([])
   const [notes, setNotes] = useState('')
+  const [editingId, setEditingId] = useState(null)
   const [saved, setSaved] = useState(false)
 
-  const todayEntries = useMemo(() => getLogsByDate(selectedDate), [getLogsByDate, selectedDate])
+  // Only current user's entries for the selected date
+  const myTodayEntries = useMemo(() => {
+    return bowelLogs
+      .filter((l) => String(l.date).slice(0, 10) === String(selectedDate).slice(0, 10) && l.userId === user?.id)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  }, [bowelLogs, selectedDate, user?.id])
 
-  const editingLog = todayEntries.length > 0 ? todayEntries[0] : null
+  // Partner's entries for calendar dot coloring — kept separate
+  const calendarEntries = useMemo(() => {
+    return bowelLogs.map((l) => ({
+      ...l,
+      _isOwn: l.userId === user?.id,
+    }))
+  }, [bowelLogs, user?.id])
 
-  const handleSelectDate = (date) => {
-    setSelectedDate(date)
-    setSaved(false)
-    const logsOnDate = bowelLogs.filter((l) => String(l.date).slice(0, 10) === date)
-    if (logsOnDate.length > 0) {
-      const log = logsOnDate[0]
-      setTime(log.time || '')
-      setDurationMinutes(Math.round((log.durationSeconds || 0) / 60))
-      setBristolType(log.bristolType || null)
-      setSymptoms(log.symptoms || [])
-      setNotes(log.notes || '')
-    } else {
-      setTime('')
-      setDurationMinutes(0)
-      setBristolType(null)
-      setSymptoms([])
-      setNotes('')
-    }
+  function clearForm() {
+    setTime('')
+    setDurationMinutes(0)
+    setBristolType(null)
+    setSymptoms([])
+    setNotes('')
+    setEditingId(null)
   }
 
-  const handleSave = () => {
+  function handleSelectDate(date) {
+    setSelectedDate(date)
+    setSaved(false)
+    clearForm()
+  }
+
+  function handleEditEntry(log) {
+    setTime(log.time || '')
+    setDurationMinutes(Math.round((log.durationSeconds || 0) / 60))
+    setBristolType(log.bristolType || null)
+    setSymptoms(log.symptoms || [])
+    setNotes(log.notes || '')
+    setEditingId(log.id)
+    setSaved(false)
+  }
+
+  function handleCancelEdit() {
+    clearForm()
+  }
+
+  function handleSave() {
     const durationSeconds = durationMinutes * 60
-    if (editingLog) {
-      updateBowelLog(editingLog.id, {
+    if (editingId) {
+      updateBowelLog(editingId, {
         date: selectedDate,
         time,
         durationSeconds,
@@ -63,23 +92,19 @@ function RecordPage() {
         notes,
       })
     }
+    clearForm()
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
 
-  const handleDelete = () => {
-    if (!editingLog) return
-    deleteBowelLog(editingLog.id)
-    setTime('')
-    setDurationMinutes(0)
-    setBristolType(null)
-    setSymptoms([])
-    setNotes('')
+  function handleDelete(id) {
+    deleteBowelLog(id)
+    if (editingId === id) clearForm()
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
 
-  const toggleSymptom = (key) => {
+  function toggleSymptom(key) {
     setSymptoms((prev) =>
       prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
     )
@@ -93,12 +118,53 @@ function RecordPage() {
       </div>
 
       <Calendar
-        entries={bowelLogs}
+        entries={calendarEntries}
         selectedDate={selectedDate}
         onSelectDate={handleSelectDate}
       />
 
+      {/* Today's existing entries */}
+      {myTodayEntries.length > 0 && (
+        <div className="today-entries">
+          <h3 className="section-title">当天记录</h3>
+          <div className="log-list">
+            {myTodayEntries.map((log) => {
+              const bristol = getBristolType(log.bristolType)
+              const isEditing = editingId === log.id
+              return (
+                <div key={log.id} className={`log-list-item${isEditing ? ' editing' : ''}`} style={{ borderLeftColor: OWN_COLOR }}>
+                  <div className="log-item-main">
+                    <span className="log-item-time">{formatTimeShort(log.time) || '未记时间'}</span>
+                    <span className="log-item-type" style={{ color: bristol?.itemColor || '#999' }}>
+                      {bristol?.label || `Type ${log.bristolType}`}
+                    </span>
+                    {log.durationSeconds > 0 && (
+                      <span className="log-item-dur">{Math.floor(log.durationSeconds / 60)}分钟</span>
+                    )}
+                    {log.symptoms?.length > 0 && (
+                      <span className="log-item-symptoms">{log.symptoms.join(' · ')}</span>
+                    )}
+                    {log.notes && <span className="log-item-notes">{log.notes}</span>}
+                  </div>
+                  <div className="log-item-actions">
+                    <button type="button" className="ghost small" onClick={() => handleEditEntry(log)}>
+                      <span className="material-symbols-outlined">edit</span>
+                    </button>
+                    <button type="button" className="log-del-btn" onClick={() => handleDelete(log.id)}>
+                      <span className="material-symbols-outlined">delete</span>
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Record form */}
       <div className="record-form">
+        <h3 className="section-title">{editingId ? '编辑记录' : '新增记录'}</h3>
+
         <div className="form-row">
           <div className="form-field">
             <label className="field-label">时间</label>
@@ -112,13 +178,9 @@ function RecordPage() {
           <div className="form-field">
             <label className="field-label">时长（分钟）</label>
             <div className="duration-stepper">
-              <button type="button" className="stepper-btn" onClick={() => setDurationMinutes((v) => Math.max(0, v - 1))}>
-                -
-              </button>
+              <button type="button" className="stepper-btn" onClick={() => setDurationMinutes((v) => Math.max(0, v - 1))}>-</button>
               <span className="stepper-value">{durationMinutes}</span>
-              <button type="button" className="stepper-btn" onClick={() => setDurationMinutes((v) => v + 1)}>
-                +
-              </button>
+              <button type="button" className="stepper-btn" onClick={() => setDurationMinutes((v) => v + 1)}>+</button>
             </div>
           </div>
         </div>
@@ -160,19 +222,17 @@ function RecordPage() {
 
         <div className="form-actions">
           <button type="button" className="primary" onClick={handleSave}>
-            保存
+            {editingId ? '更新' : '添加记录'}
           </button>
-          {editingLog && (
-            <button type="button" className="danger" onClick={handleDelete}>
-              删除
+          {editingId && (
+            <button type="button" className="ghost" onClick={handleCancelEdit}>
+              取消编辑
             </button>
           )}
         </div>
-
-        {saved && (
-          <div className="toast">保存成功</div>
-        )}
       </div>
+
+      {saved && <div className="toast">保存成功</div>}
     </main>
   )
 }
