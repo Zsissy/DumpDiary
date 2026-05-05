@@ -162,7 +162,7 @@ export function DumpDiaryProvider({ children }) {
   const skipNextCloudWriteRef = useRef(false)
   const lastRemoteUpdatedAtRef = useRef('')
   const bowelLogsRef = useRef(bowelLogs)
-  useEffect(() => { bowelLogsRef.current = bowelLogs }, [bowelLogs])
+  bowelLogsRef.current = bowelLogs
 
   // Hydrate on mount / user change
   useEffect(() => {
