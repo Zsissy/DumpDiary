@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.dumpdiary.app-mergeDebugResources-71:/values-en-rIN/values-en-rIN.xml",
+            "outputFile": "com.dumpdiary.app-mergeDebugResources-73:/values-en-rIN/values-en-rIN.xml",
             "map": [
                 {
                     "source": "/Users/zhengxiqiao/.gradle/caches/8.10.2/transforms/03969e68e69aa599f25a9f1b5bc213c3/transformed/core-1.13.1/res/values-en-rIN/values-en-rIN.xml",

@@ -41,35 +41,38 @@ public final class LogRepository_Factory implements Factory<LogRepository> {
 
   private final Provider<WorkManager> workManagerProvider;
 
+  private final Provider<SupabaseRoomRepository> supabaseRoomRepositoryProvider;
+
   public LogRepository_Factory(Provider<DumpDiaryApi> apiProvider, Provider<LogDao> logDaoProvider,
       Provider<ProfileDao> profileDaoProvider,
       Provider<UserPreferencesRepository> preferencesRepositoryProvider,
-      Provider<ContentResolver> contentResolverProvider,
-      Provider<WorkManager> workManagerProvider) {
+      Provider<ContentResolver> contentResolverProvider, Provider<WorkManager> workManagerProvider,
+      Provider<SupabaseRoomRepository> supabaseRoomRepositoryProvider) {
     this.apiProvider = apiProvider;
     this.logDaoProvider = logDaoProvider;
     this.profileDaoProvider = profileDaoProvider;
     this.preferencesRepositoryProvider = preferencesRepositoryProvider;
     this.contentResolverProvider = contentResolverProvider;
     this.workManagerProvider = workManagerProvider;
+    this.supabaseRoomRepositoryProvider = supabaseRoomRepositoryProvider;
   }
 
   @Override
   public LogRepository get() {
-    return newInstance(apiProvider.get(), logDaoProvider.get(), profileDaoProvider.get(), preferencesRepositoryProvider.get(), contentResolverProvider.get(), workManagerProvider.get());
+    return newInstance(apiProvider.get(), logDaoProvider.get(), profileDaoProvider.get(), preferencesRepositoryProvider.get(), contentResolverProvider.get(), workManagerProvider.get(), supabaseRoomRepositoryProvider.get());
   }
 
   public static LogRepository_Factory create(Provider<DumpDiaryApi> apiProvider,
       Provider<LogDao> logDaoProvider, Provider<ProfileDao> profileDaoProvider,
       Provider<UserPreferencesRepository> preferencesRepositoryProvider,
-      Provider<ContentResolver> contentResolverProvider,
-      Provider<WorkManager> workManagerProvider) {
-    return new LogRepository_Factory(apiProvider, logDaoProvider, profileDaoProvider, preferencesRepositoryProvider, contentResolverProvider, workManagerProvider);
+      Provider<ContentResolver> contentResolverProvider, Provider<WorkManager> workManagerProvider,
+      Provider<SupabaseRoomRepository> supabaseRoomRepositoryProvider) {
+    return new LogRepository_Factory(apiProvider, logDaoProvider, profileDaoProvider, preferencesRepositoryProvider, contentResolverProvider, workManagerProvider, supabaseRoomRepositoryProvider);
   }
 
   public static LogRepository newInstance(DumpDiaryApi api, LogDao logDao, ProfileDao profileDao,
       UserPreferencesRepository preferencesRepository, ContentResolver contentResolver,
-      WorkManager workManager) {
-    return new LogRepository(api, logDao, profileDao, preferencesRepository, contentResolver, workManager);
+      WorkManager workManager, SupabaseRoomRepository supabaseRoomRepository) {
+    return new LogRepository(api, logDao, profileDao, preferencesRepository, contentResolver, workManager, supabaseRoomRepository);
   }
 }

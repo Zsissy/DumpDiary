@@ -1,11 +1,12 @@
 # DumpDiary
 
-Monorepo MVP for an Android bowel-tracking app plus a Kotlin backend.
+Monorepo MVP for an Android bowel-tracking app plus both Kotlin and Node.js backend options.
 
 ## Modules
 
 - `app`: Android client built with Kotlin, Jetpack Compose, Room, Hilt, DataStore, WorkManager, Retrofit
 - `backend`: Ktor service exposing auth, profile, log, and stats endpoints
+- `backend-node`: Node.js + Docker backend for easier NAS / server deployment
 
 ## Implemented MVP scope
 
@@ -34,6 +35,22 @@ To stop it:
 
 ```bash
 ./scripts/stop-backend.sh
+```
+
+## Run Node backend
+
+```bash
+cd backend-node
+cp .env.example .env
+npm install
+npm start
+```
+
+For Docker / NAS deployment:
+
+```bash
+cd backend-node
+docker compose up -d --build
 ```
 
 ## Run Android app

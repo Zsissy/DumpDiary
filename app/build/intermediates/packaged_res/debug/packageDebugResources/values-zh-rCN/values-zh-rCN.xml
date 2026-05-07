@@ -83,6 +83,10 @@
     <string name="reset_password">重置密码</string>
     <string name="save">保存</string>
     <string name="send_code">发送验证码</string>
+    <string name="server_address">服务地址</string>
+    <string name="server_address_hint">例如：api.example.com 或 https://api.example.com</string>
+    <string name="server_not_configured">还没有配置服务地址。</string>
+    <string name="server_switch_hint">切换服务后会强制退出登录，并清空本地同步缓存。</string>
     <string name="settings">设置</string>
     <string name="share_with_friends">好友共享</string>
     <string name="shared_logs_hint">通过邮箱添加好友后，双方都可以在日历和统计里看到彼此的记录，也能一起使用这套记录界面。</string>
@@ -106,6 +110,8 @@
     <string name="update_available_title">发现新版本 %1$s</string>
     <string name="urgency">急迫感</string>
     <string name="verification_code">验证码</string>
+    <string name="verify_and_save">验证并保存</string>
+    <string name="verify_and_switch">验证并切换</string>
     <string name="view_details">查看详情</string>
     <string name="visits">次</string>
     <string name="weekly_insight">本周洞察</string>

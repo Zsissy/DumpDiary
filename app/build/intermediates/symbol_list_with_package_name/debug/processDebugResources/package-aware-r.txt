@@ -132,6 +132,46 @@ attr contentInsetRight
 attr contentInsetStart
 attr contentInsetStartWithNavigation
 attr controlBackground
+attr cornerShape
+attr cropAspectRatioX
+attr cropAspectRatioY
+attr cropAutoZoomEnabled
+attr cropBackgroundColor
+attr cropBorderCornerColor
+attr cropBorderCornerLength
+attr cropBorderCornerOffset
+attr cropBorderCornerThickness
+attr cropBorderLineColor
+attr cropBorderLineThickness
+attr cropCenterMoveEnabled
+attr cropCornerCircleFillColor
+attr cropCornerRadius
+attr cropFixAspectRatio
+attr cropFlipHorizontally
+attr cropFlipVertically
+attr cropGuidelines
+attr cropGuidelinesColor
+attr cropGuidelinesThickness
+attr cropInitialCropWindowPaddingRatio
+attr cropMaxCropResultHeightPX
+attr cropMaxCropResultWidthPX
+attr cropMaxZoom
+attr cropMinCropResultHeightPX
+attr cropMinCropResultWidthPX
+attr cropMinCropWindowHeight
+attr cropMinCropWindowWidth
+attr cropMultiTouchEnabled
+attr cropSaveBitmapToInstanceState
+attr cropScaleType
+attr cropShape
+attr cropShowCropOverlay
+attr cropShowLabel
+attr cropShowProgressBar
+attr cropSnapRadius
+attr cropTouchRadius
+attr cropperLabelText
+attr cropperLabelTextColor
+attr cropperLabelTextSize
 attr customNavigationLayout
 attr data
 attr dataPattern
@@ -244,6 +284,7 @@ attr popUpToSaveState
 attr popupMenuStyle
 attr popupTheme
 attr popupWindowStyle
+attr postSplashScreenTheme
 attr preserveIconSpacing
 attr progressBarPadding
 attr progressBarStyle
@@ -271,6 +312,7 @@ attr singleChoiceItemLayout
 attr spinBars
 attr spinnerDropDownItemStyle
 attr spinnerStyle
+attr splashScreenIconSize
 attr splitTrack
 attr srcCompat
 attr startDestination
@@ -341,6 +383,10 @@ attr windowFixedWidthMinor
 attr windowMinWidthMajor
 attr windowMinWidthMinor
 attr windowNoTitle
+attr windowSplashScreenAnimatedIcon
+attr windowSplashScreenAnimationDuration
+attr windowSplashScreenBackground
+attr windowSplashScreenIconBackgroundColor
 bool abc_action_bar_embed_tabs
 bool abc_config_actionMenuItemAllCaps
 bool enable_system_alarm_service_default
@@ -552,6 +598,13 @@ dimen notification_small_icon_size_as_large
 dimen notification_subtext_size
 dimen notification_top_pad
 dimen notification_top_pad_large_text
+dimen splashscreen_icon_mask_size_no_background
+dimen splashscreen_icon_mask_size_with_background
+dimen splashscreen_icon_mask_stroke_no_background
+dimen splashscreen_icon_mask_stroke_with_background
+dimen splashscreen_icon_size
+dimen splashscreen_icon_size_no_background
+dimen splashscreen_icon_size_with_background
 dimen tooltip_corner_radius
 dimen tooltip_horizontal_padding
 dimen tooltip_margin
@@ -647,15 +700,22 @@ drawable btn_radio_off_mtrl
 drawable btn_radio_off_to_on_mtrl_animation
 drawable btn_radio_on_mtrl
 drawable btn_radio_on_to_off_mtrl_animation
+drawable compat_splash_screen
+drawable compat_splash_screen_no_icon_background
+drawable ic_arrow_back_24
 drawable ic_call_answer
 drawable ic_call_answer_low
 drawable ic_call_answer_video
 drawable ic_call_answer_video_low
 drawable ic_call_decline
 drawable ic_call_decline_low
+drawable ic_flip_24
 drawable ic_launcher_foreground
 drawable ic_launcher_foreground_image
 drawable ic_launcher_full_bleed
+drawable ic_rotate_left_24
+drawable ic_rotate_right_24
+drawable icon_background
 drawable notification_action_background
 drawable notification_bg
 drawable notification_bg_low
@@ -674,7 +734,10 @@ drawable tooltip_frame_dark
 drawable tooltip_frame_light
 id ALT
 id CTRL
+id CropOverlayView
+id CropProgressBar
 id FUNCTION
+id ImageView_image
 id META
 id SHIFT
 id SYM
@@ -739,6 +802,9 @@ id beginning
 id blocking
 id bottom
 id buttonPanel
+id center
+id centerCrop
+id centerInside
 id center_vertical
 id checkbox
 id checked
@@ -749,6 +815,8 @@ id compose_view_saveable_id_tag
 id consume_window_insets_tag
 id content
 id contentPanel
+id cropImageView
+id crop_image_menu_crop
 id custom
 id customPanel
 id decor_content_parent
@@ -760,6 +828,7 @@ id edit_text_id
 id end
 id expand_activities_button
 id expanded_menu
+id fitCenter
 id forever
 id fragment_container_view_tag
 id group_divider
@@ -768,6 +837,11 @@ id hide_ime_id
 id hide_in_inspector_tag
 id home
 id homeAsUp
+id ic_flip_24
+id ic_flip_24_horizontally
+id ic_flip_24_vertically
+id ic_rotate_left_24
+id ic_rotate_right_24
 id icon
 id icon_group
 id ifRoom
@@ -792,11 +866,16 @@ id notification_main_column
 id notification_main_column_container
 id off
 id on
+id onTouch
+id oval
 id parentPanel
 id pooling_container_listener_holder_tag
 id progress_circular
 id progress_horizontal
 id radio
+id rectangle
+id rectangleHorizontalOnly
+id rectangleVerticalOnly
 id report_drawn
 id right_icon
 id right_side
@@ -821,6 +900,7 @@ id showHome
 id showTitle
 id spacer
 id special_effects_controller_view_tag
+id splashscreen_icon_view
 id split_action_bar
 id src_atop
 id src_in
@@ -867,6 +947,7 @@ integer abc_config_activityDefaultDur
 integer abc_config_activityShortDur
 integer cancel_button_image_alpha
 integer config_tooltipAnimTime
+integer default_icon_animation_duration
 integer m3c_window_layout_in_display_cutout_mode
 integer status_bar_notification_info_maxnum
 interpolator btn_checkbox_checked_mtrl_animation_interpolator_0
@@ -904,6 +985,8 @@ layout abc_search_dropdown_item_icons_2line
 layout abc_search_view
 layout abc_select_dialog_material
 layout abc_tooltip
+layout crop_image_activity
+layout crop_image_view
 layout custom_dialog
 layout ime_base_split_test_activity
 layout ime_secondary_split_test_activity
@@ -916,7 +999,9 @@ layout notification_template_part_time
 layout select_dialog_item_material
 layout select_dialog_multichoice_material
 layout select_dialog_singlechoice_material
+layout splash_screen_view
 layout support_simple_spinner_dropdown_item
+menu crop_image_menu
 mipmap ic_launcher
 mipmap ic_launcher_legacy
 mipmap ic_launcher_legacy_round
@@ -980,6 +1065,7 @@ string consistency_is_key
 string consistency_score
 string consistent_patterns_detected
 string cracked
+string crop_image_menu_crop
 string current_streak
 string daily_flow
 string daily_rhythm
@@ -1005,6 +1091,11 @@ string friend_email
 string friend_email_hint
 string hard_lumps
 string health_rhythm
+string ic_flip_24
+string ic_flip_24_horizontally
+string ic_flip_24_vertically
+string ic_rotate_left_24
+string ic_rotate_right_24
 string import_csv
 string in_progress
 string indeterminate
@@ -1100,6 +1191,9 @@ string not_selected
 string pain_free
 string password
 string peak_insight
+string pick_image_camera
+string pick_image_chooser_title
+string pick_image_gallery
 string range_end
 string range_start
 string refresh
@@ -1109,6 +1203,10 @@ string save
 string search_menu_title
 string selected
 string send_code
+string server_address
+string server_address_hint
+string server_not_configured
+string server_switch_hint
 string settings
 string share_with_friends
 string shared_logs_hint
@@ -1141,6 +1239,8 @@ string update_available_message
 string update_available_title
 string urgency
 string verification_code
+string verify_and_save
+string verify_and_switch
 string view_details
 string visits
 string weekly_insight
@@ -1221,6 +1321,9 @@ style Base_Theme_AppCompat_Light_Dialog_Alert
 style Base_Theme_AppCompat_Light_Dialog_FixedSize
 style Base_Theme_AppCompat_Light_Dialog_MinWidth
 style Base_Theme_AppCompat_Light_DialogWhenLarge
+style Base_Theme_SplashScreen
+style Base_Theme_SplashScreen_DayNight
+style Base_Theme_SplashScreen_Light
 style Base_ThemeOverlay_AppCompat
 style Base_ThemeOverlay_AppCompat_ActionBar
 style Base_ThemeOverlay_AppCompat_Dark
@@ -1308,6 +1411,10 @@ style Base_Widget_AppCompat_TextView
 style Base_Widget_AppCompat_TextView_SpinnerItem
 style Base_Widget_AppCompat_Toolbar
 style Base_Widget_AppCompat_Toolbar_Button_Navigation
+style Base_v21_Theme_SplashScreen
+style Base_v21_Theme_SplashScreen_Light
+style Base_v27_Theme_SplashScreen
+style Base_v27_Theme_SplashScreen_Light
 style DialogWindowTheme
 style EdgeToEdgeFloatingDialogTheme
 style EdgeToEdgeFloatingDialogWindowTheme
@@ -1419,6 +1526,10 @@ style Theme_AppCompat_Light_DialogWhenLarge
 style Theme_AppCompat_Light_NoActionBar
 style Theme_AppCompat_NoActionBar
 style Theme_DumpDiary
+style Theme_DumpDiary_Crop
+style Theme_SplashScreen
+style Theme_SplashScreen_Common
+style Theme_SplashScreen_IconBackground
 style ThemeOverlay_AppCompat
 style ThemeOverlay_AppCompat_ActionBar
 style ThemeOverlay_AppCompat_Dark
@@ -1525,6 +1636,7 @@ styleable Capability queryPatterns shortcutMatchRequired
 styleable CheckedTextView android_checkMark checkMarkCompat checkMarkTint checkMarkTintMode
 styleable ColorStateListItem android_color android_alpha android_lStar alpha lStar
 styleable CompoundButton android_button buttonCompat buttonTint buttonTintMode
+styleable CropImageView cornerShape cropAspectRatioX cropAspectRatioY cropAutoZoomEnabled cropBackgroundColor cropBorderCornerColor cropBorderCornerLength cropBorderCornerOffset cropBorderCornerThickness cropBorderLineColor cropBorderLineThickness cropCenterMoveEnabled cropCornerCircleFillColor cropCornerRadius cropFixAspectRatio cropFlipHorizontally cropFlipVertically cropGuidelines cropGuidelinesColor cropGuidelinesThickness cropInitialCropWindowPaddingRatio cropMaxCropResultHeightPX cropMaxCropResultWidthPX cropMaxZoom cropMinCropResultHeightPX cropMinCropResultWidthPX cropMinCropWindowHeight cropMinCropWindowWidth cropMultiTouchEnabled cropSaveBitmapToInstanceState cropScaleType cropShape cropShowCropOverlay cropShowLabel cropShowProgressBar cropSnapRadius cropTouchRadius cropperLabelText cropperLabelTextColor cropperLabelTextSize
 styleable DrawerArrowToggle arrowHeadLength arrowShaftLength barLength color drawableSize gapBetweenBars spinBars thickness
 styleable FontFamily fontProviderAuthority fontProviderCerts fontProviderFetchStrategy fontProviderFetchTimeout fontProviderPackage fontProviderQuery fontProviderSystemFontFamily
 styleable FontFamilyFont android_font android_fontWeight android_fontStyle android_ttcIndex android_fontVariationSettings font fontStyle fontVariationSettings fontWeight ttcIndex
@@ -1560,4 +1672,6 @@ styleable ViewBackgroundHelper android_background backgroundTint backgroundTintM
 styleable ViewStubCompat android_id android_layout android_inflatedId
 xml backup_rules
 xml data_extraction_rules
+xml file_paths
+xml library_file_paths
 xml network_security_config

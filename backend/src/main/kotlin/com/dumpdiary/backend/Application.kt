@@ -81,6 +81,9 @@ fun Application.module() {
         exception<IllegalArgumentException> { call, cause ->
             call.respond(HttpStatusCode.BadRequest, mapOf("message" to (cause.message ?: "Bad request")))
         }
+        exception<io.ktor.server.plugins.NotFoundException> { call, cause ->
+            call.respond(HttpStatusCode.NotFound, mapOf("message" to (cause.message ?: "Not found")))
+        }
         exception<IllegalStateException> { call, cause ->
             call.respond(HttpStatusCode.Conflict, mapOf("message" to (cause.message ?: "Conflict")))
         }

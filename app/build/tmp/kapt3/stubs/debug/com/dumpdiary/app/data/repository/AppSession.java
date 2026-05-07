@@ -2,6 +2,7 @@ package com.dumpdiary.app.data.repository;
 
 import android.content.ContentResolver;
 import android.net.Uri;
+import android.provider.OpenableColumns;
 import androidx.work.ExistingWorkPolicy;
 import androidx.work.WorkManager;
 import com.dumpdiary.app.data.local.LogDao;
@@ -9,8 +10,6 @@ import com.dumpdiary.app.data.local.ProfileDao;
 import com.dumpdiary.app.data.local.UserPreferences;
 import com.dumpdiary.app.data.local.UserPreferencesRepository;
 import com.dumpdiary.app.data.model.AuthRequestDto;
-import com.dumpdiary.app.data.model.AppVersionDto;
-import com.dumpdiary.app.data.model.BowelLogDto;
 import com.dumpdiary.app.data.model.BowelLogEntity;
 import com.dumpdiary.app.data.model.AddFriendRequestDto;
 import com.dumpdiary.app.data.model.FriendProfileDto;
@@ -23,8 +22,8 @@ import com.dumpdiary.app.data.model.UpdateProfileRequestDto;
 import com.dumpdiary.app.data.model.UserProfileEntity;
 import com.dumpdiary.app.data.model.VerificationPurposeDto;
 import com.dumpdiary.app.data.remote.DumpDiaryApi;
+import com.dumpdiary.app.data.remote.SupabaseApi;
 import com.dumpdiary.app.worker.SyncWorker;
-import dagger.hilt.android.qualifiers.ApplicationContext;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -36,7 +35,7 @@ import kotlinx.coroutines.flow.Flow;
 import kotlinx.datetime.Clock;
 import okhttp3.MultipartBody;
 
-@kotlin.Metadata(mv = {1, 9, 0}, k = 1, xi = 48, d1 = {"\u0000 \n\u0002\u0018\u0002\n\u0002\u0010\u0000\n\u0000\n\u0002\u0010\u000b\n\u0000\n\u0002\u0010\u000e\n\u0002\b\u0016\n\u0002\u0010\b\n\u0002\b\u0002\b\u0087\b\u0018\u00002\u00020\u0001B5\u0012\u0006\u0010\u0002\u001a\u00020\u0003\u0012\u0006\u0010\u0004\u001a\u00020\u0005\u0012\u0006\u0010\u0006\u001a\u00020\u0005\u0012\u0006\u0010\u0007\u001a\u00020\u0005\u0012\u0006\u0010\b\u001a\u00020\u0005\u0012\u0006\u0010\t\u001a\u00020\u0005\u00a2\u0006\u0002\u0010\nJ\t\u0010\u0012\u001a\u00020\u0003H\u00c6\u0003J\t\u0010\u0013\u001a\u00020\u0005H\u00c6\u0003J\t\u0010\u0014\u001a\u00020\u0005H\u00c6\u0003J\t\u0010\u0015\u001a\u00020\u0005H\u00c6\u0003J\t\u0010\u0016\u001a\u00020\u0005H\u00c6\u0003J\t\u0010\u0017\u001a\u00020\u0005H\u00c6\u0003JE\u0010\u0018\u001a\u00020\u00002\b\b\u0002\u0010\u0002\u001a\u00020\u00032\b\b\u0002\u0010\u0004\u001a\u00020\u00052\b\b\u0002\u0010\u0006\u001a\u00020\u00052\b\b\u0002\u0010\u0007\u001a\u00020\u00052\b\b\u0002\u0010\b\u001a\u00020\u00052\b\b\u0002\u0010\t\u001a\u00020\u0005H\u00c6\u0001J\u0013\u0010\u0019\u001a\u00020\u00032\b\u0010\u001a\u001a\u0004\u0018\u00010\u0001H\u00d6\u0003J\t\u0010\u001b\u001a\u00020\u001cH\u00d6\u0001J\t\u0010\u001d\u001a\u00020\u0005H\u00d6\u0001R\u0011\u0010\u0004\u001a\u00020\u0005\u00a2\u0006\b\n\u0000\u001a\u0004\b\u000b\u0010\fR\u0011\u0010\b\u001a\u00020\u0005\u00a2\u0006\b\n\u0000\u001a\u0004\b\r\u0010\fR\u0011\u0010\u0002\u001a\u00020\u0003\u00a2\u0006\b\n\u0000\u001a\u0004\b\u0002\u0010\u000eR\u0011\u0010\t\u001a\u00020\u0005\u00a2\u0006\b\n\u0000\u001a\u0004\b\u000f\u0010\fR\u0011\u0010\u0006\u001a\u00020\u0005\u00a2\u0006\b\n\u0000\u001a\u0004\b\u0010\u0010\fR\u0011\u0010\u0007\u001a\u00020\u0005\u00a2\u0006\b\n\u0000\u001a\u0004\b\u0011\u0010\f\u00a8\u0006\u001e"}, d2 = {"Lcom/dumpdiary/app/data/repository/AppSession;", "", "isLoggedIn", "", "accessToken", "", "refreshToken", "userId", "email", "languageTag", "(ZLjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V", "getAccessToken", "()Ljava/lang/String;", "getEmail", "()Z", "getLanguageTag", "getRefreshToken", "getUserId", "component1", "component2", "component3", "component4", "component5", "component6", "copy", "equals", "other", "hashCode", "", "toString", "app_debug"})
+@kotlin.Metadata(mv = {1, 9, 0}, k = 1, xi = 48, d1 = {"\u0000 \n\u0002\u0018\u0002\n\u0002\u0010\u0000\n\u0000\n\u0002\u0010\u000b\n\u0000\n\u0002\u0010\u000e\n\u0002\b%\n\u0002\u0010\b\n\u0002\b\u0002\b\u0087\b\u0018\u00002\u00020\u0001Be\u0012\u0006\u0010\u0002\u001a\u00020\u0003\u0012\u0006\u0010\u0004\u001a\u00020\u0005\u0012\u0006\u0010\u0006\u001a\u00020\u0005\u0012\u0006\u0010\u0007\u001a\u00020\u0005\u0012\u0006\u0010\b\u001a\u00020\u0005\u0012\u0006\u0010\t\u001a\u00020\u0005\u0012\u0006\u0010\n\u001a\u00020\u0005\u0012\b\b\u0002\u0010\u000b\u001a\u00020\u0005\u0012\b\b\u0002\u0010\f\u001a\u00020\u0005\u0012\b\b\u0002\u0010\r\u001a\u00020\u0005\u0012\b\b\u0002\u0010\u000e\u001a\u00020\u0005\u00a2\u0006\u0002\u0010\u000fJ\t\u0010\u001c\u001a\u00020\u0003H\u00c6\u0003J\t\u0010\u001d\u001a\u00020\u0005H\u00c6\u0003J\t\u0010\u001e\u001a\u00020\u0005H\u00c6\u0003J\t\u0010\u001f\u001a\u00020\u0005H\u00c6\u0003J\t\u0010 \u001a\u00020\u0005H\u00c6\u0003J\t\u0010!\u001a\u00020\u0005H\u00c6\u0003J\t\u0010\"\u001a\u00020\u0005H\u00c6\u0003J\t\u0010#\u001a\u00020\u0005H\u00c6\u0003J\t\u0010$\u001a\u00020\u0005H\u00c6\u0003J\t\u0010%\u001a\u00020\u0005H\u00c6\u0003J\t\u0010&\u001a\u00020\u0005H\u00c6\u0003Jw\u0010\'\u001a\u00020\u00002\b\b\u0002\u0010\u0002\u001a\u00020\u00032\b\b\u0002\u0010\u0004\u001a\u00020\u00052\b\b\u0002\u0010\u0006\u001a\u00020\u00052\b\b\u0002\u0010\u0007\u001a\u00020\u00052\b\b\u0002\u0010\b\u001a\u00020\u00052\b\b\u0002\u0010\t\u001a\u00020\u00052\b\b\u0002\u0010\n\u001a\u00020\u00052\b\b\u0002\u0010\u000b\u001a\u00020\u00052\b\b\u0002\u0010\f\u001a\u00020\u00052\b\b\u0002\u0010\r\u001a\u00020\u00052\b\b\u0002\u0010\u000e\u001a\u00020\u0005H\u00c6\u0001J\u0013\u0010(\u001a\u00020\u00032\b\u0010)\u001a\u0004\u0018\u00010\u0001H\u00d6\u0003J\t\u0010*\u001a\u00020+H\u00d6\u0001J\t\u0010,\u001a\u00020\u0005H\u00d6\u0001R\u0011\u0010\u0004\u001a\u00020\u0005\u00a2\u0006\b\n\u0000\u001a\u0004\b\u0010\u0010\u0011R\u0011\u0010\b\u001a\u00020\u0005\u00a2\u0006\b\n\u0000\u001a\u0004\b\u0012\u0010\u0011R\u0011\u0010\u0002\u001a\u00020\u0003\u00a2\u0006\b\n\u0000\u001a\u0004\b\u0002\u0010\u0013R\u0011\u0010\t\u001a\u00020\u0005\u00a2\u0006\b\n\u0000\u001a\u0004\b\u0014\u0010\u0011R\u0011\u0010\u000e\u001a\u00020\u0005\u00a2\u0006\b\n\u0000\u001a\u0004\b\u0015\u0010\u0011R\u0011\u0010\u0006\u001a\u00020\u0005\u00a2\u0006\b\n\u0000\u001a\u0004\b\u0016\u0010\u0011R\u0011\u0010\n\u001a\u00020\u0005\u00a2\u0006\b\n\u0000\u001a\u0004\b\u0017\u0010\u0011R\u0011\u0010\u000b\u001a\u00020\u0005\u00a2\u0006\b\n\u0000\u001a\u0004\b\u0018\u0010\u0011R\u0011\u0010\f\u001a\u00020\u0005\u00a2\u0006\b\n\u0000\u001a\u0004\b\u0019\u0010\u0011R\u0011\u0010\u0007\u001a\u00020\u0005\u00a2\u0006\b\n\u0000\u001a\u0004\b\u001a\u0010\u0011R\u0011\u0010\r\u001a\u00020\u0005\u00a2\u0006\b\n\u0000\u001a\u0004\b\u001b\u0010\u0011\u00a8\u0006-"}, d2 = {"Lcom/dumpdiary/app/data/repository/AppSession;", "", "isLoggedIn", "", "accessToken", "", "refreshToken", "userId", "email", "languageTag", "serverBaseUrl", "serverType", "supabaseAnonKey", "username", "matchCode", "(ZLjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V", "getAccessToken", "()Ljava/lang/String;", "getEmail", "()Z", "getLanguageTag", "getMatchCode", "getRefreshToken", "getServerBaseUrl", "getServerType", "getSupabaseAnonKey", "getUserId", "getUsername", "component1", "component10", "component11", "component2", "component3", "component4", "component5", "component6", "component7", "component8", "component9", "copy", "equals", "other", "hashCode", "", "toString", "app_debug"})
 public final class AppSession {
     private final boolean isLoggedIn = false;
     @org.jetbrains.annotations.NotNull()
@@ -49,13 +48,28 @@ public final class AppSession {
     private final java.lang.String email = null;
     @org.jetbrains.annotations.NotNull()
     private final java.lang.String languageTag = null;
+    @org.jetbrains.annotations.NotNull()
+    private final java.lang.String serverBaseUrl = null;
+    @org.jetbrains.annotations.NotNull()
+    private final java.lang.String serverType = null;
+    @org.jetbrains.annotations.NotNull()
+    private final java.lang.String supabaseAnonKey = null;
+    @org.jetbrains.annotations.NotNull()
+    private final java.lang.String username = null;
+    @org.jetbrains.annotations.NotNull()
+    private final java.lang.String matchCode = null;
     
     public AppSession(boolean isLoggedIn, @org.jetbrains.annotations.NotNull()
     java.lang.String accessToken, @org.jetbrains.annotations.NotNull()
     java.lang.String refreshToken, @org.jetbrains.annotations.NotNull()
     java.lang.String userId, @org.jetbrains.annotations.NotNull()
     java.lang.String email, @org.jetbrains.annotations.NotNull()
-    java.lang.String languageTag) {
+    java.lang.String languageTag, @org.jetbrains.annotations.NotNull()
+    java.lang.String serverBaseUrl, @org.jetbrains.annotations.NotNull()
+    java.lang.String serverType, @org.jetbrains.annotations.NotNull()
+    java.lang.String supabaseAnonKey, @org.jetbrains.annotations.NotNull()
+    java.lang.String username, @org.jetbrains.annotations.NotNull()
+    java.lang.String matchCode) {
         super();
     }
     
@@ -88,8 +102,43 @@ public final class AppSession {
         return null;
     }
     
+    @org.jetbrains.annotations.NotNull()
+    public final java.lang.String getServerBaseUrl() {
+        return null;
+    }
+    
+    @org.jetbrains.annotations.NotNull()
+    public final java.lang.String getServerType() {
+        return null;
+    }
+    
+    @org.jetbrains.annotations.NotNull()
+    public final java.lang.String getSupabaseAnonKey() {
+        return null;
+    }
+    
+    @org.jetbrains.annotations.NotNull()
+    public final java.lang.String getUsername() {
+        return null;
+    }
+    
+    @org.jetbrains.annotations.NotNull()
+    public final java.lang.String getMatchCode() {
+        return null;
+    }
+    
     public final boolean component1() {
         return false;
+    }
+    
+    @org.jetbrains.annotations.NotNull()
+    public final java.lang.String component10() {
+        return null;
+    }
+    
+    @org.jetbrains.annotations.NotNull()
+    public final java.lang.String component11() {
+        return null;
     }
     
     @org.jetbrains.annotations.NotNull()
@@ -118,12 +167,32 @@ public final class AppSession {
     }
     
     @org.jetbrains.annotations.NotNull()
+    public final java.lang.String component7() {
+        return null;
+    }
+    
+    @org.jetbrains.annotations.NotNull()
+    public final java.lang.String component8() {
+        return null;
+    }
+    
+    @org.jetbrains.annotations.NotNull()
+    public final java.lang.String component9() {
+        return null;
+    }
+    
+    @org.jetbrains.annotations.NotNull()
     public final com.dumpdiary.app.data.repository.AppSession copy(boolean isLoggedIn, @org.jetbrains.annotations.NotNull()
     java.lang.String accessToken, @org.jetbrains.annotations.NotNull()
     java.lang.String refreshToken, @org.jetbrains.annotations.NotNull()
     java.lang.String userId, @org.jetbrains.annotations.NotNull()
     java.lang.String email, @org.jetbrains.annotations.NotNull()
-    java.lang.String languageTag) {
+    java.lang.String languageTag, @org.jetbrains.annotations.NotNull()
+    java.lang.String serverBaseUrl, @org.jetbrains.annotations.NotNull()
+    java.lang.String serverType, @org.jetbrains.annotations.NotNull()
+    java.lang.String supabaseAnonKey, @org.jetbrains.annotations.NotNull()
+    java.lang.String username, @org.jetbrains.annotations.NotNull()
+    java.lang.String matchCode) {
         return null;
     }
     

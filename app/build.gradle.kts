@@ -15,8 +15,8 @@ android {
     val resolvedApiBaseUrl = providers.gradleProperty("dumpDiaryApiBaseUrl")
         .orElse("https://placeholder.invalid/")
         .get()
-    val appVersionCode = 3
-    val appVersionName = "1.2"
+    val appVersionCode = 4
+    val appVersionName = "1.3"
     val keystorePropertiesFile = rootProject.file("app/keystore.properties")
     val keystoreProperties = Properties().apply {
         if (keystorePropertiesFile.exists()) {
@@ -87,6 +87,7 @@ dependencies {
     androidTestImplementation(composeBom)
 
     implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.core:core-splashscreen:1.0.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.6")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.6")
@@ -123,6 +124,7 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation("com.vanniktech:android-image-cropper:4.6.0")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")

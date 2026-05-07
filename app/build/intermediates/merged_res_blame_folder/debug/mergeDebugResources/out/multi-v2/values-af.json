@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.dumpdiary.app-mergeDebugResources-71:/values-af/values-af.xml",
+            "outputFile": "com.dumpdiary.app-mergeDebugResources-73:/values-af/values-af.xml",
             "map": [
                 {
                     "source": "/Users/zhengxiqiao/.gradle/caches/8.10.2/transforms/6bbcc31ce25b10a9b9a9f9d583cfe6ab/transformed/material3-release/res/values-af/values-af.xml",

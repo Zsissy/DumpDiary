@@ -19,17 +19,23 @@ import com.dumpdiary.app.data.local.LogDao;
 import com.dumpdiary.app.data.local.ProfileDao;
 import com.dumpdiary.app.data.local.UserPreferencesRepository;
 import com.dumpdiary.app.data.remote.DumpDiaryApi;
+import com.dumpdiary.app.data.remote.SupabaseApi;
 import com.dumpdiary.app.data.repository.AppUpdateRepository;
 import com.dumpdiary.app.data.repository.AuthRepository;
 import com.dumpdiary.app.data.repository.FriendRepository;
 import com.dumpdiary.app.data.repository.LogRepository;
 import com.dumpdiary.app.data.repository.ProfileRepository;
+import com.dumpdiary.app.data.repository.ServerConfigRepository;
+import com.dumpdiary.app.data.repository.SupabaseAuthRepository;
+import com.dumpdiary.app.data.repository.SupabaseRoomRepository;
 import com.dumpdiary.app.di.AppModule_ProvideApiFactory;
 import com.dumpdiary.app.di.AppModule_ProvideContentResolverFactory;
 import com.dumpdiary.app.di.AppModule_ProvideDatabaseFactory;
 import com.dumpdiary.app.di.AppModule_ProvideLogDaoFactory;
 import com.dumpdiary.app.di.AppModule_ProvideOkHttpFactory;
 import com.dumpdiary.app.di.AppModule_ProvideProfileDaoFactory;
+import com.dumpdiary.app.di.AppModule_ProvideSupabaseApiFactory;
+import com.dumpdiary.app.di.AppModule_ProvideSupabaseOkHttpFactory;
 import com.dumpdiary.app.di.AppModule_ProvideWorkManagerFactory;
 import com.dumpdiary.app.ui.AuthViewModel;
 import com.dumpdiary.app.ui.AuthViewModel_HiltModules;
@@ -39,6 +45,8 @@ import com.dumpdiary.app.ui.MainViewModel;
 import com.dumpdiary.app.ui.MainViewModel_HiltModules;
 import com.dumpdiary.app.ui.SettingsViewModel;
 import com.dumpdiary.app.ui.SettingsViewModel_HiltModules;
+import com.dumpdiary.app.worker.SupabaseSyncWorker;
+import com.dumpdiary.app.worker.SupabaseSyncWorker_AssistedFactory;
 import com.dumpdiary.app.worker.SyncWorker;
 import com.dumpdiary.app.worker.SyncWorker_AssistedFactory;
 import dagger.hilt.android.ActivityRetainedLifecycle;
@@ -424,16 +432,13 @@ public final class DaggerDumpDiaryApplication_HiltComponents_SingletonC {
 
     @IdentifierNameString
     private static final class LazyClassKeyProvider {
-      static String com_dumpdiary_app_ui_AuthViewModel = "com.dumpdiary.app.ui.AuthViewModel";
-
       static String com_dumpdiary_app_ui_SettingsViewModel = "com.dumpdiary.app.ui.SettingsViewModel";
 
       static String com_dumpdiary_app_ui_DiaryViewModel = "com.dumpdiary.app.ui.DiaryViewModel";
 
       static String com_dumpdiary_app_ui_MainViewModel = "com.dumpdiary.app.ui.MainViewModel";
 
-      @KeepFieldType
-      AuthViewModel com_dumpdiary_app_ui_AuthViewModel2;
+      static String com_dumpdiary_app_ui_AuthViewModel = "com.dumpdiary.app.ui.AuthViewModel";
 
       @KeepFieldType
       SettingsViewModel com_dumpdiary_app_ui_SettingsViewModel2;
@@ -443,6 +448,9 @@ public final class DaggerDumpDiaryApplication_HiltComponents_SingletonC {
 
       @KeepFieldType
       MainViewModel com_dumpdiary_app_ui_MainViewModel2;
+
+      @KeepFieldType
+      AuthViewModel com_dumpdiary_app_ui_AuthViewModel2;
     }
   }
 
@@ -494,9 +502,9 @@ public final class DaggerDumpDiaryApplication_HiltComponents_SingletonC {
     private static final class LazyClassKeyProvider {
       static String com_dumpdiary_app_ui_SettingsViewModel = "com.dumpdiary.app.ui.SettingsViewModel";
 
-      static String com_dumpdiary_app_ui_MainViewModel = "com.dumpdiary.app.ui.MainViewModel";
-
       static String com_dumpdiary_app_ui_DiaryViewModel = "com.dumpdiary.app.ui.DiaryViewModel";
+
+      static String com_dumpdiary_app_ui_MainViewModel = "com.dumpdiary.app.ui.MainViewModel";
 
       static String com_dumpdiary_app_ui_AuthViewModel = "com.dumpdiary.app.ui.AuthViewModel";
 
@@ -504,10 +512,10 @@ public final class DaggerDumpDiaryApplication_HiltComponents_SingletonC {
       SettingsViewModel com_dumpdiary_app_ui_SettingsViewModel2;
 
       @KeepFieldType
-      MainViewModel com_dumpdiary_app_ui_MainViewModel2;
+      DiaryViewModel com_dumpdiary_app_ui_DiaryViewModel2;
 
       @KeepFieldType
-      DiaryViewModel com_dumpdiary_app_ui_DiaryViewModel2;
+      MainViewModel com_dumpdiary_app_ui_MainViewModel2;
 
       @KeepFieldType
       AuthViewModel com_dumpdiary_app_ui_AuthViewModel2;
@@ -535,7 +543,7 @@ public final class DaggerDumpDiaryApplication_HiltComponents_SingletonC {
       public T get() {
         switch (id) {
           case 0: // com.dumpdiary.app.ui.AuthViewModel 
-          return (T) new AuthViewModel(singletonCImpl.authRepositoryProvider.get(), singletonCImpl.appUpdateRepositoryProvider.get());
+          return (T) new AuthViewModel(singletonCImpl.authRepositoryProvider.get(), singletonCImpl.supabaseAuthRepositoryProvider.get(), singletonCImpl.appUpdateRepositoryProvider.get(), singletonCImpl.serverConfigRepositoryProvider.get(), singletonCImpl.userPreferencesRepositoryProvider.get());
 
           case 1: // com.dumpdiary.app.ui.DiaryViewModel 
           return (T) new DiaryViewModel(singletonCImpl.logRepositoryProvider.get(), singletonCImpl.profileRepositoryProvider.get(), singletonCImpl.friendRepositoryProvider.get());
@@ -544,7 +552,7 @@ public final class DaggerDumpDiaryApplication_HiltComponents_SingletonC {
           return (T) new MainViewModel(singletonCImpl.authRepositoryProvider.get(), singletonCImpl.profileRepositoryProvider.get(), singletonCImpl.logRepositoryProvider.get(), singletonCImpl.userPreferencesRepositoryProvider.get());
 
           case 3: // com.dumpdiary.app.ui.SettingsViewModel 
-          return (T) new SettingsViewModel(singletonCImpl.profileRepositoryProvider.get(), singletonCImpl.logRepositoryProvider.get(), singletonCImpl.authRepositoryProvider.get(), singletonCImpl.userPreferencesRepositoryProvider.get());
+          return (T) new SettingsViewModel(singletonCImpl.profileRepositoryProvider.get(), singletonCImpl.logRepositoryProvider.get(), singletonCImpl.authRepositoryProvider.get(), singletonCImpl.userPreferencesRepositoryProvider.get(), singletonCImpl.serverConfigRepositoryProvider.get(), singletonCImpl.friendRepositoryProvider.get());
 
           default: throw new AssertionError(id);
         }
@@ -628,17 +636,29 @@ public final class DaggerDumpDiaryApplication_HiltComponents_SingletonC {
 
     private Provider<UserPreferencesRepository> userPreferencesRepositoryProvider;
 
+    private Provider<OkHttpClient> provideSupabaseOkHttpProvider;
+
+    private Provider<SupabaseApi> provideSupabaseApiProvider;
+
+    private Provider<AppDatabase> provideDatabaseProvider;
+
+    private Provider<WorkManager> provideWorkManagerProvider;
+
+    private Provider<SupabaseRoomRepository> supabaseRoomRepositoryProvider;
+
+    private Provider<SupabaseSyncWorker_AssistedFactory> supabaseSyncWorker_AssistedFactoryProvider;
+
     private Provider<OkHttpClient> provideOkHttpProvider;
 
     private Provider<DumpDiaryApi> provideApiProvider;
 
-    private Provider<AppDatabase> provideDatabaseProvider;
-
     private Provider<ContentResolver> provideContentResolverProvider;
 
-    private Provider<WorkManager> provideWorkManagerProvider;
-
     private Provider<LogRepository> logRepositoryProvider;
+
+    private Provider<ServerConfigRepository> serverConfigRepositoryProvider;
+
+    private Provider<SupabaseAuthRepository> supabaseAuthRepositoryProvider;
 
     private Provider<ProfileRepository> profileRepositoryProvider;
 
@@ -666,7 +686,7 @@ public final class DaggerDumpDiaryApplication_HiltComponents_SingletonC {
 
     private Map<String, javax.inject.Provider<WorkerAssistedFactory<? extends ListenableWorker>>> mapOfStringAndProviderOfWorkerAssistedFactoryOf(
         ) {
-      return Collections.<String, javax.inject.Provider<WorkerAssistedFactory<? extends ListenableWorker>>>singletonMap("com.dumpdiary.app.worker.SyncWorker", ((Provider) syncWorker_AssistedFactoryProvider));
+      return MapBuilder.<String, javax.inject.Provider<WorkerAssistedFactory<? extends ListenableWorker>>>newMapBuilder(2).put("com.dumpdiary.app.worker.SupabaseSyncWorker", ((Provider) supabaseSyncWorker_AssistedFactoryProvider)).put("com.dumpdiary.app.worker.SyncWorker", ((Provider) syncWorker_AssistedFactoryProvider)).build();
     }
 
     private HiltWorkerFactory hiltWorkerFactory() {
@@ -676,17 +696,23 @@ public final class DaggerDumpDiaryApplication_HiltComponents_SingletonC {
     @SuppressWarnings("unchecked")
     private void initialize(final ApplicationContextModule applicationContextModuleParam) {
       this.userPreferencesRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<UserPreferencesRepository>(singletonCImpl, 4));
-      this.provideOkHttpProvider = DoubleCheck.provider(new SwitchingProvider<OkHttpClient>(singletonCImpl, 3));
-      this.provideApiProvider = DoubleCheck.provider(new SwitchingProvider<DumpDiaryApi>(singletonCImpl, 2));
+      this.provideSupabaseOkHttpProvider = DoubleCheck.provider(new SwitchingProvider<OkHttpClient>(singletonCImpl, 3));
+      this.provideSupabaseApiProvider = DoubleCheck.provider(new SwitchingProvider<SupabaseApi>(singletonCImpl, 2));
       this.provideDatabaseProvider = DoubleCheck.provider(new SwitchingProvider<AppDatabase>(singletonCImpl, 5));
-      this.provideContentResolverProvider = DoubleCheck.provider(new SwitchingProvider<ContentResolver>(singletonCImpl, 6));
-      this.provideWorkManagerProvider = DoubleCheck.provider(new SwitchingProvider<WorkManager>(singletonCImpl, 7));
-      this.logRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<LogRepository>(singletonCImpl, 1));
-      this.profileRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<ProfileRepository>(singletonCImpl, 8));
-      this.friendRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<FriendRepository>(singletonCImpl, 9));
-      this.syncWorker_AssistedFactoryProvider = SingleCheck.provider(new SwitchingProvider<SyncWorker_AssistedFactory>(singletonCImpl, 0));
-      this.authRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<AuthRepository>(singletonCImpl, 10));
-      this.appUpdateRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<AppUpdateRepository>(singletonCImpl, 11));
+      this.provideWorkManagerProvider = DoubleCheck.provider(new SwitchingProvider<WorkManager>(singletonCImpl, 6));
+      this.supabaseRoomRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<SupabaseRoomRepository>(singletonCImpl, 1));
+      this.supabaseSyncWorker_AssistedFactoryProvider = SingleCheck.provider(new SwitchingProvider<SupabaseSyncWorker_AssistedFactory>(singletonCImpl, 0));
+      this.provideOkHttpProvider = DoubleCheck.provider(new SwitchingProvider<OkHttpClient>(singletonCImpl, 10));
+      this.provideApiProvider = DoubleCheck.provider(new SwitchingProvider<DumpDiaryApi>(singletonCImpl, 9));
+      this.provideContentResolverProvider = DoubleCheck.provider(new SwitchingProvider<ContentResolver>(singletonCImpl, 11));
+      this.logRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<LogRepository>(singletonCImpl, 8));
+      this.serverConfigRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<ServerConfigRepository>(singletonCImpl, 13));
+      this.supabaseAuthRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<SupabaseAuthRepository>(singletonCImpl, 14));
+      this.profileRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<ProfileRepository>(singletonCImpl, 12));
+      this.friendRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<FriendRepository>(singletonCImpl, 15));
+      this.syncWorker_AssistedFactoryProvider = SingleCheck.provider(new SwitchingProvider<SyncWorker_AssistedFactory>(singletonCImpl, 7));
+      this.authRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<AuthRepository>(singletonCImpl, 16));
+      this.appUpdateRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<AppUpdateRepository>(singletonCImpl, 17));
     }
 
     @Override
@@ -728,22 +754,22 @@ public final class DaggerDumpDiaryApplication_HiltComponents_SingletonC {
       @Override
       public T get() {
         switch (id) {
-          case 0: // com.dumpdiary.app.worker.SyncWorker_AssistedFactory 
-          return (T) new SyncWorker_AssistedFactory() {
+          case 0: // com.dumpdiary.app.worker.SupabaseSyncWorker_AssistedFactory 
+          return (T) new SupabaseSyncWorker_AssistedFactory() {
             @Override
-            public SyncWorker create(Context appContext, WorkerParameters params) {
-              return new SyncWorker(appContext, params, singletonCImpl.logRepositoryProvider.get(), singletonCImpl.profileRepositoryProvider.get(), singletonCImpl.friendRepositoryProvider.get());
+            public SupabaseSyncWorker create(Context appContext, WorkerParameters params) {
+              return new SupabaseSyncWorker(appContext, params, singletonCImpl.supabaseRoomRepositoryProvider.get());
             }
           };
 
-          case 1: // com.dumpdiary.app.data.repository.LogRepository 
-          return (T) new LogRepository(singletonCImpl.provideApiProvider.get(), singletonCImpl.logDao(), singletonCImpl.profileDao(), singletonCImpl.userPreferencesRepositoryProvider.get(), singletonCImpl.provideContentResolverProvider.get(), singletonCImpl.provideWorkManagerProvider.get());
+          case 1: // com.dumpdiary.app.data.repository.SupabaseRoomRepository 
+          return (T) new SupabaseRoomRepository(singletonCImpl.provideSupabaseApiProvider.get(), singletonCImpl.logDao(), singletonCImpl.profileDao(), singletonCImpl.userPreferencesRepositoryProvider.get(), singletonCImpl.provideWorkManagerProvider.get());
 
-          case 2: // com.dumpdiary.app.data.remote.DumpDiaryApi 
-          return (T) AppModule_ProvideApiFactory.provideApi(singletonCImpl.provideOkHttpProvider.get());
+          case 2: // com.dumpdiary.app.data.remote.SupabaseApi 
+          return (T) AppModule_ProvideSupabaseApiFactory.provideSupabaseApi(singletonCImpl.provideSupabaseOkHttpProvider.get());
 
-          case 3: // okhttp3.OkHttpClient 
-          return (T) AppModule_ProvideOkHttpFactory.provideOkHttp(singletonCImpl.userPreferencesRepositoryProvider.get());
+          case 3: // @javax.inject.Named("supabase") okhttp3.OkHttpClient 
+          return (T) AppModule_ProvideSupabaseOkHttpFactory.provideSupabaseOkHttp(singletonCImpl.userPreferencesRepositoryProvider.get());
 
           case 4: // com.dumpdiary.app.data.local.UserPreferencesRepository 
           return (T) new UserPreferencesRepository(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
@@ -751,23 +777,46 @@ public final class DaggerDumpDiaryApplication_HiltComponents_SingletonC {
           case 5: // com.dumpdiary.app.data.local.AppDatabase 
           return (T) AppModule_ProvideDatabaseFactory.provideDatabase(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
 
-          case 6: // android.content.ContentResolver 
-          return (T) AppModule_ProvideContentResolverFactory.provideContentResolver(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
-
-          case 7: // androidx.work.WorkManager 
+          case 6: // androidx.work.WorkManager 
           return (T) AppModule_ProvideWorkManagerFactory.provideWorkManager(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
 
-          case 8: // com.dumpdiary.app.data.repository.ProfileRepository 
-          return (T) new ProfileRepository(singletonCImpl.provideApiProvider.get(), singletonCImpl.profileDao(), singletonCImpl.userPreferencesRepositoryProvider.get(), singletonCImpl.provideContentResolverProvider.get());
+          case 7: // com.dumpdiary.app.worker.SyncWorker_AssistedFactory 
+          return (T) new SyncWorker_AssistedFactory() {
+            @Override
+            public SyncWorker create(Context appContext2, WorkerParameters params2) {
+              return new SyncWorker(appContext2, params2, singletonCImpl.logRepositoryProvider.get(), singletonCImpl.profileRepositoryProvider.get(), singletonCImpl.friendRepositoryProvider.get(), singletonCImpl.userPreferencesRepositoryProvider.get(), singletonCImpl.supabaseRoomRepositoryProvider.get());
+            }
+          };
 
-          case 9: // com.dumpdiary.app.data.repository.FriendRepository 
+          case 8: // com.dumpdiary.app.data.repository.LogRepository 
+          return (T) new LogRepository(singletonCImpl.provideApiProvider.get(), singletonCImpl.logDao(), singletonCImpl.profileDao(), singletonCImpl.userPreferencesRepositoryProvider.get(), singletonCImpl.provideContentResolverProvider.get(), singletonCImpl.provideWorkManagerProvider.get(), singletonCImpl.supabaseRoomRepositoryProvider.get());
+
+          case 9: // com.dumpdiary.app.data.remote.DumpDiaryApi 
+          return (T) AppModule_ProvideApiFactory.provideApi(singletonCImpl.provideOkHttpProvider.get());
+
+          case 10: // @javax.inject.Named("rest") okhttp3.OkHttpClient 
+          return (T) AppModule_ProvideOkHttpFactory.provideOkHttp(singletonCImpl.userPreferencesRepositoryProvider.get());
+
+          case 11: // android.content.ContentResolver 
+          return (T) AppModule_ProvideContentResolverFactory.provideContentResolver(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
+
+          case 12: // com.dumpdiary.app.data.repository.ProfileRepository 
+          return (T) new ProfileRepository(singletonCImpl.provideApiProvider.get(), singletonCImpl.profileDao(), singletonCImpl.userPreferencesRepositoryProvider.get(), singletonCImpl.provideContentResolverProvider.get(), singletonCImpl.serverConfigRepositoryProvider.get(), singletonCImpl.supabaseAuthRepositoryProvider.get());
+
+          case 13: // com.dumpdiary.app.data.repository.ServerConfigRepository 
+          return (T) new ServerConfigRepository(singletonCImpl.userPreferencesRepositoryProvider.get(), singletonCImpl.profileDao(), singletonCImpl.logDao(), singletonCImpl.provideWorkManagerProvider.get());
+
+          case 14: // com.dumpdiary.app.data.repository.SupabaseAuthRepository 
+          return (T) new SupabaseAuthRepository(singletonCImpl.provideSupabaseApiProvider.get(), singletonCImpl.userPreferencesRepositoryProvider.get(), singletonCImpl.profileDao());
+
+          case 15: // com.dumpdiary.app.data.repository.FriendRepository 
           return (T) new FriendRepository(singletonCImpl.provideApiProvider.get(), singletonCImpl.userPreferencesRepositoryProvider.get());
 
-          case 10: // com.dumpdiary.app.data.repository.AuthRepository 
-          return (T) new AuthRepository(singletonCImpl.provideApiProvider.get(), singletonCImpl.userPreferencesRepositoryProvider.get(), singletonCImpl.profileDao(), singletonCImpl.logDao());
+          case 16: // com.dumpdiary.app.data.repository.AuthRepository 
+          return (T) new AuthRepository(singletonCImpl.provideApiProvider.get(), singletonCImpl.userPreferencesRepositoryProvider.get(), singletonCImpl.profileDao(), singletonCImpl.logDao(), singletonCImpl.serverConfigRepositoryProvider.get(), singletonCImpl.friendRepositoryProvider.get());
 
-          case 11: // com.dumpdiary.app.data.repository.AppUpdateRepository 
-          return (T) new AppUpdateRepository(singletonCImpl.provideApiProvider.get());
+          case 17: // com.dumpdiary.app.data.repository.AppUpdateRepository 
+          return (T) new AppUpdateRepository(singletonCImpl.provideApiProvider.get(), singletonCImpl.provideSupabaseApiProvider.get(), singletonCImpl.serverConfigRepositoryProvider.get(), singletonCImpl.userPreferencesRepositoryProvider.get());
 
           default: throw new AssertionError(id);
         }

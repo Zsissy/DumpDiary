@@ -13,6 +13,12 @@
     <string name="download_update">Download update</string>
     <string name="later">Later</string>
     <string name="reset_password">Reset password</string>
+    <string name="server_address">Server address</string>
+    <string name="server_address_hint">Example: api.example.com or https://api.example.com</string>
+    <string name="verify_and_save">Verify and save</string>
+    <string name="verify_and_switch">Verify and switch</string>
+    <string name="server_not_configured">No server configured yet.</string>
+    <string name="server_switch_hint">Switching servers signs you out and clears local synced data.</string>
     <string name="nickname">Nickname</string>
     <string name="save">Save</string>
     <string name="logout">Logout</string>

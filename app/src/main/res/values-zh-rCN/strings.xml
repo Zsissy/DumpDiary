@@ -13,6 +13,12 @@
     <string name="download_update">下载更新</string>
     <string name="later">稍后</string>
     <string name="reset_password">重置密码</string>
+    <string name="server_address">服务地址</string>
+    <string name="server_address_hint">例如：api.example.com 或 https://api.example.com</string>
+    <string name="verify_and_save">验证并保存</string>
+    <string name="verify_and_switch">验证并切换</string>
+    <string name="server_not_configured">还没有配置服务地址。</string>
+    <string name="server_switch_hint">切换服务后会强制退出登录，并清空本地同步缓存。</string>
     <string name="nickname">昵称</string>
     <string name="save">保存</string>
     <string name="logout">退出登录</string>

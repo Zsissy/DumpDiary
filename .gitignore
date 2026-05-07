@@ -1,7 +1,11 @@
 .DS_Store
 .gradle/
 .kotlin/
+app/keystore.properties
+app/signing/
+app/build/
 backend/.env
 backend/data/
 backend/backend.pid
 backend/backend.log
+/app/build/tmp

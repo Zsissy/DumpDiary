@@ -10,6 +10,7 @@ import io.ktor.http.content.forEachPart
 import io.ktor.http.content.streamProvider
 import io.ktor.server.application.call
 import io.ktor.server.auth.principal
+import io.ktor.server.plugins.NotFoundException
 import io.ktor.server.request.receiveMultipart
 import io.ktor.server.request.receiveNullable
 import io.ktor.server.response.respond
@@ -24,12 +25,12 @@ import java.util.UUID
 fun Route.profileRoutes(store: InMemoryStore, uploadDir: File) {
     get("/profile") {
         val userId = call.principal<AuthenticatedUser>()!!.userId
-        call.respond(store.getProfile(userId) ?: error("Profile not found."))
+        call.respond(store.getProfile(userId) ?: throw NotFoundException("Profile not found."))
     }
 
     put("/profile") {
         val userId = call.principal<AuthenticatedUser>()!!.userId
-        val current = store.getProfile(userId) ?: error("Profile not found.")
+        val current = store.getProfile(userId) ?: throw NotFoundException("Profile not found.")
         val request = call.receiveNullable<UpdateProfileRequest>() ?: error("Body is required.")
         val updated = current.copy(displayName = request.displayName, updatedAt = Clock.System.now().toString())
         store.putProfile(userId, updated)
@@ -38,11 +39,16 @@ fun Route.profileRoutes(store: InMemoryStore, uploadDir: File) {
 
     post("/avatar") {
         val userId = call.principal<AuthenticatedUser>()!!.userId
-        val current = store.getProfile(userId) ?: error("Profile not found.")
+        val current = store.getProfile(userId) ?: throw NotFoundException("Profile not found.")
         var uploadedFileUrl: String? = null
         val multipart = call.receiveMultipart()
         multipart.forEachPart { part ->
-            if (part is PartData.FileItem) {
+            if (part is PartData.FileItem && part.name == "avatar") {
+                val contentType = part.contentType?.toString() ?: ""
+                if (!contentType.startsWith("image/")) {
+                    part.dispose()
+                    error("Uploaded file must be an image. Received: $contentType")
+                }
                 val safeName = part.originalFileName?.substringAfterLast("/")?.substringAfterLast("\\") ?: "avatar.jpg"
                 val fileName = "${UUID.randomUUID()}-$safeName"
                 val file = File(uploadDir, fileName)

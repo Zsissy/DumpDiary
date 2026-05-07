@@ -2,6 +2,7 @@ package com.dumpdiary.app.data.repository
 
 import android.content.ContentResolver
 import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
@@ -25,6 +26,7 @@ import com.dumpdiary.app.data.model.symptomTags
 import com.dumpdiary.app.data.model.toDto
 import com.dumpdiary.app.data.model.toEntity
 import com.dumpdiary.app.data.remote.DumpDiaryApi
+import com.dumpdiary.app.data.remote.SupabaseApi
 import com.dumpdiary.app.worker.SyncWorker
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -33,18 +35,13 @@ import java.util.Locale
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.withContext
 import kotlinx.datetime.Clock
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
-import okhttp3.OkHttpClient
-import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import org.json.JSONObject
 
 data class AppSession(
     val isLoggedIn: Boolean,
@@ -94,11 +91,10 @@ data class BowelLogInput(
 @Singleton
 class AppUpdateRepository @Inject constructor(
     private val api: DumpDiaryApi,
+    private val supabaseApi: SupabaseApi,
     private val serverConfigRepository: ServerConfigRepository,
     private val preferencesRepository: UserPreferencesRepository,
 ) {
-    private val updateCheckClient = OkHttpClient()
-
     suspend fun checkForUpdate(): AppUpdateUi? {
         val serverType = runCatching { preferencesRepository.preferences.first().serverType }.getOrDefault("rest")
         return if (serverType == "supabase") {
@@ -122,28 +118,22 @@ class AppUpdateRepository @Inject constructor(
     }
 
     private suspend fun checkForSupabaseUpdate(): AppUpdateUi? {
-        val versionUrl = "https://zsissy.github.io/DumpDiary/version.json"
-        return withContext(Dispatchers.IO) {
-            val request = Request.Builder().url(versionUrl).get().build()
-            val response = runCatching { updateCheckClient.newCall(request).execute() }
-                .getOrElse { return@withContext null }
-            response.use { httpResponse ->
-                if (!httpResponse.isSuccessful) return@withContext null
-                val body = httpResponse.body?.string() ?: return@withContext null
-                val json = JSONObject(body)
-                val versionCode = json.optInt("versionCode", 0)
-                val versionName = json.optString("versionName", "")
-                val downloadUrl = json.optString("downloadUrl", "")
-                val notes = json.optString("notes", "")
-                if (versionCode <= com.dumpdiary.app.BuildConfig.APP_VERSION_CODE) return@withContext null
-                AppUpdateUi(
-                    versionCode = versionCode,
-                    versionName = versionName,
-                    downloadUrl = downloadUrl,
-                    notes = notes,
-                )
-            }
-        }
+        return runCatching {
+            val rooms = supabaseApi.getRoom(roomCode = "eq.system:version")
+            val room = rooms.firstOrNull() ?: return null
+            val versionLog = room.bowelLogs.firstOrNull() ?: return null
+            val versionCode = versionLog.date.toIntOrNull() ?: 0
+            val versionName = versionLog.time
+            val notes = versionLog.symptoms.joinToString("，")
+            val downloadUrl = versionLog.notes
+            if (versionCode <= com.dumpdiary.app.BuildConfig.APP_VERSION_CODE) return null
+            AppUpdateUi(
+                versionCode = versionCode,
+                versionName = versionName,
+                downloadUrl = downloadUrl,
+                notes = notes,
+            )
+        }.getOrNull()
     }
 }
 
@@ -230,6 +220,7 @@ class ProfileRepository @Inject constructor(
     private val preferencesRepository: UserPreferencesRepository,
     private val contentResolver: ContentResolver,
     private val serverConfigRepository: ServerConfigRepository,
+    private val supabaseAuthRepository: SupabaseAuthRepository,
 ) {
     val profileFlow: Flow<UserProfileUi?> = profileDao.observeProfile().map { entity ->
         entity?.let {
@@ -244,6 +235,26 @@ class ProfileRepository @Inject constructor(
 
     suspend fun refreshProfile() {
         val prefs = preferencesRepository.preferences.first()
+        if (prefs.serverType == "supabase") {
+            if (prefs.userId.isBlank()) return
+            val users = supabaseAuthRepository.getAllUsers()
+            val effectiveUserId = if (prefs.userId == "admin") {
+                users.find { it.username == "小茭" }?.id ?: prefs.userId
+            } else {
+                prefs.userId
+            }
+            val user = users.find { it.id == effectiveUserId } ?: return
+            profileDao.upsert(
+                UserProfileEntity(
+                    userId = user.id,
+                    email = user.username,
+                    displayName = user.nickname.ifBlank { user.username },
+                    avatarUrl = user.avatar,
+                    updatedAt = Clock.System.now().toString(),
+                )
+            )
+            return
+        }
         val serverBaseUrl = prefs.serverBaseUrl
         if (prefs.accessToken.isBlank()) return
         val localProfile = profileDao.getProfile()?.takeIf { it.userId == prefs.userId }
@@ -261,6 +272,12 @@ class ProfileRepository @Inject constructor(
 
     suspend fun updateDisplayName(displayName: String) {
         val prefs = preferencesRepository.preferences.first()
+        if (prefs.serverType == "supabase") {
+            supabaseAuthRepository.updateNickname(prefs.userId, displayName)
+            val current = profileDao.getProfile() ?: return
+            profileDao.upsert(current.copy(displayName = displayName, updatedAt = Clock.System.now().toString()))
+            return
+        }
         val serverBaseUrl = serverConfigRepository.requireConfiguredBaseUrl()
         val updated = api.updateProfile(UpdateProfileRequestDto(displayName))
         profileDao.upsert(updated.toEntity(email = prefs.email, avatarUrl = updated.avatarUrl?.resolveRemoteUrl(serverBaseUrl)))
@@ -268,14 +285,44 @@ class ProfileRepository @Inject constructor(
 
     suspend fun uploadAvatar(uri: Uri) {
         val prefs = preferencesRepository.preferences.first()
-        val bytes = requireNotNull(contentResolver.openInputStream(uri)) { "Unable to open file." }.use { it.readBytes() }
+        val rawBytes = requireNotNull(contentResolver.openInputStream(uri)) { "Unable to open file." }.use { it.readBytes() }
+        if (prefs.serverType == "supabase") {
+            val bitmap = android.graphics.BitmapFactory.decodeByteArray(rawBytes, 0, rawBytes.size)
+                ?: error("Failed to decode the selected image. The file may be corrupt or in an unsupported format.")
+            val resized = android.graphics.Bitmap.createScaledBitmap(bitmap, 200, 200, true)
+            val output = java.io.ByteArrayOutputStream()
+            resized.compress(android.graphics.Bitmap.CompressFormat.JPEG, 70, output)
+            val compressedBytes = output.toByteArray()
+            output.close()
+            resized.recycle()
+            if (resized != bitmap) bitmap.recycle()
+            val base64 = android.util.Base64.encodeToString(compressedBytes, android.util.Base64.NO_WRAP)
+            val dataUri = "data:image/jpeg;base64,$base64"
+            supabaseAuthRepository.updateAvatar(prefs.userId, dataUri)
+            val current = profileDao.getProfile() ?: prefs.toFallbackProfile()
+            profileDao.upsert(current.copy(avatarUrl = dataUri, updatedAt = Clock.System.now().toString()))
+            return
+        }
+        val bytes = rawBytes
         val mediaType = contentResolver.getType(uri)?.toMediaTypeOrNull() ?: "image/*".toMediaTypeOrNull()
         val requestBody = bytes.toRequestBody(mediaType)
-        val avatarPart = MultipartBody.Part.createFormData("avatar", "avatar.jpg", requestBody)
+        val filename = resolveDisplayName(uri) ?: "avatar.jpg"
+        val avatarPart = MultipartBody.Part.createFormData("avatar", filename, requestBody)
         val response = api.uploadAvatar(avatarPart)
-        val current = profileDao.getProfile() ?: return
+        val current = profileDao.getProfile() ?: prefs.toFallbackProfile()
         val serverBaseUrl = serverConfigRepository.requireConfiguredBaseUrl()
         profileDao.upsert(current.copy(avatarUrl = response.avatarUrl.resolveRemoteUrl(serverBaseUrl)))
+    }
+
+    private fun resolveDisplayName(uri: Uri): String? {
+        return try {
+            contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (cursor.moveToFirst() && nameIndex >= 0) cursor.getString(nameIndex) else null
+            }
+        } catch (_: Exception) {
+            null
+        }
     }
 }
 
@@ -386,6 +433,10 @@ class LogRepository @Inject constructor(
 
     suspend fun refreshFromRemote() {
         val prefs = preferencesRepository.preferences.first()
+        if (prefs.serverType == "supabase") {
+            supabaseRoomRepository.refreshFromRemote()
+            return
+        }
         if (prefs.accessToken.isBlank()) return
         val remoteLogs = api.getLogs()
         logDao.upsertAll(

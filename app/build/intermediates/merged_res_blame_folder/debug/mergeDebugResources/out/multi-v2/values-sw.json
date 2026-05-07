@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.dumpdiary.app-mergeDebugResources-71:/values-sw/values-sw.xml",
+            "outputFile": "com.dumpdiary.app-mergeDebugResources-73:/values-sw/values-sw.xml",
             "map": [
                 {
                     "source": "/Users/zhengxiqiao/.gradle/caches/8.10.2/transforms/5158911b5d46ef997e51acc18fb7ebbe/transformed/ui-release/res/values-sw/values-sw.xml",

@@ -92,6 +92,10 @@ string register
 string reset_password
 string save
 string send_code
+string server_address
+string server_address_hint
+string server_not_configured
+string server_switch_hint
 string settings
 string share_with_friends
 string shared_logs_hint
@@ -115,6 +119,8 @@ string update_available_message
 string update_available_title
 string urgency
 string verification_code
+string verify_and_save
+string verify_and_switch
 string view_details
 string visits
 string weekly_insight
@@ -122,6 +128,8 @@ string year
 string yearly_flow
 string yearly_trend
 style Theme.DumpDiary
+style Theme.DumpDiary.Crop
 xml backup_rules
 xml data_extraction_rules
+xml file_paths
 xml network_security_config

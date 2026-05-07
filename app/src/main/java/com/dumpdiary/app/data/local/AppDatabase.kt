@@ -12,10 +12,10 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ProfileDao {
-    @Query("SELECT * FROM profile LIMIT 1")
+    @Query("SELECT * FROM profile ORDER BY updatedAt DESC LIMIT 1")
     fun observeProfile(): Flow<UserProfileEntity?>
 
-    @Query("SELECT * FROM profile LIMIT 1")
+    @Query("SELECT * FROM profile ORDER BY updatedAt DESC LIMIT 1")
     suspend fun getProfile(): UserProfileEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

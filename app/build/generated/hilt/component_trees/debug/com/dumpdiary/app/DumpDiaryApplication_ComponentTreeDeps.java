@@ -29,6 +29,7 @@ import hilt_aggregated_deps._com_dumpdiary_app_ui_MainViewModel_HiltModules_Bind
 import hilt_aggregated_deps._com_dumpdiary_app_ui_MainViewModel_HiltModules_KeyModule;
 import hilt_aggregated_deps._com_dumpdiary_app_ui_SettingsViewModel_HiltModules_BindsModule;
 import hilt_aggregated_deps._com_dumpdiary_app_ui_SettingsViewModel_HiltModules_KeyModule;
+import hilt_aggregated_deps._com_dumpdiary_app_worker_SupabaseSyncWorker_HiltModule;
 import hilt_aggregated_deps._com_dumpdiary_app_worker_SyncWorker_HiltModule;
 import hilt_aggregated_deps._dagger_hilt_android_flags_FragmentGetContextFix_FragmentGetContextFixEntryPoint;
 import hilt_aggregated_deps._dagger_hilt_android_flags_HiltWrapper_FragmentGetContextFix_FragmentGetContextFixModule;
@@ -82,6 +83,7 @@ import hilt_aggregated_deps._dagger_hilt_android_internal_modules_HiltWrapper_Ac
         _com_dumpdiary_app_ui_MainViewModel_HiltModules_KeyModule.class,
         _com_dumpdiary_app_ui_SettingsViewModel_HiltModules_BindsModule.class,
         _com_dumpdiary_app_ui_SettingsViewModel_HiltModules_KeyModule.class,
+        _com_dumpdiary_app_worker_SupabaseSyncWorker_HiltModule.class,
         _com_dumpdiary_app_worker_SyncWorker_HiltModule.class,
         _dagger_hilt_android_flags_FragmentGetContextFix_FragmentGetContextFixEntryPoint.class,
         _dagger_hilt_android_flags_HiltWrapper_FragmentGetContextFix_FragmentGetContextFixModule.class,

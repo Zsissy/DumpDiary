@@ -8,13 +8,22 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.net.Uri
+import android.os.Build
 import android.os.Environment
 import android.text.format.DateFormat
+import android.graphics.BitmapFactory
+import android.graphics.Bitmap
+import android.util.Base64
 import android.widget.Toast
 import androidx.core.content.FileProvider
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import com.canhub.cropper.CropImageContract
+import com.canhub.cropper.CropImageContractOptions
+import com.canhub.cropper.CropImageOptions
+import com.canhub.cropper.CropImageView
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -102,6 +111,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -202,26 +212,40 @@ fun DumpDiaryApp(
     val settingsState by settingsViewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(state.session.isLoggedIn) {
-        if (state.session.isLoggedIn) {
-            navController.navigate("home") {
-                popUpTo(0)
-            }
-        } else {
-            navController.navigate("login") {
-                popUpTo(0)
-            }
-        }
+    val snackbarMessages = remember(authState.message, diaryState.message, settingsState.message) {
+        authState.message ?: diaryState.message ?: settingsState.message
     }
-
-    LaunchedEffect(authState.message, diaryState.message, settingsState.message) {
-        val message = authState.message ?: diaryState.message ?: settingsState.message
+    LaunchedEffect(snackbarMessages) {
+        val message = snackbarMessages
         if (message != null) {
             snackbarHostState.showSnackbar(message)
             authViewModel.consumeMessage()
             diaryViewModel.consumeMessage()
             settingsViewModel.consumeMessage()
         }
+    }
+
+    if (state.isReady) {
+        LaunchedEffect(state.session.isLoggedIn) {
+            if (state.session.isLoggedIn) {
+                if (navController.currentDestination?.route != "home") {
+                    navController.navigate("home") {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
+            } else {
+                if (navController.currentDestination?.route != "login") {
+                    navController.navigate("login") {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
+            }
+        }
+    }
+
+    if (!state.isReady) {
+        Box(modifier = Modifier.fillMaxSize())
+        return
     }
 
     Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { paddingValues ->
@@ -266,9 +290,8 @@ fun DumpDiaryApp(
                     diaryState = diaryState,
                     onSaveLog = diaryViewModel::saveLog,
                     onAddFriend = diaryViewModel::addFriend,
-                    onEdit = {
-                        diaryViewModel.loadForEdit(it)
-                        navController.navigate("editor")
+                    onEdit = { id ->
+                        navController.navigate("view-record/$id")
                     },
                     onRefresh = diaryViewModel::refresh,
                     onMoveMonth = diaryViewModel::moveMonth,
@@ -284,6 +307,18 @@ fun DumpDiaryApp(
                         mainViewModel.updateLanguage(it)
                         settingsViewModel.updateLanguage(it)
                     },
+                )
+            }
+            composable("view-record/{id}") { backStackEntry ->
+                val id = backStackEntry.arguments?.getString("id") ?: return@composable
+                val log = diaryState.logs.firstOrNull { it.id == id } ?: return@composable
+                ViewRecordScreen(
+                    log = log,
+                    onEdit = {
+                        diaryViewModel.loadForEdit(id)
+                        navController.navigate("editor")
+                    },
+                    onBack = { navController.popBackStack() },
                 )
             }
             composable("editor") {
@@ -311,6 +346,8 @@ fun DumpDiaryApp(
                     onExportLogs = settingsViewModel::exportLogs,
                     onImportLogs = settingsViewModel::importLogs,
                     onValidateAndSwitchServer = settingsViewModel::validateAndSwitchServer,
+                    onValidateAndSwitchSupabaseServer = settingsViewModel::validateAndSwitchSupabaseServer,
+                    onSetServerType = settingsViewModel::setServerType,
                     onLanguageChange = {
                         mainViewModel.updateLanguage(it)
                         settingsViewModel.updateLanguage(it)
@@ -344,34 +381,43 @@ private fun LoginScreen(
     val context = LocalContext.current
     var downloadId by remember { mutableLongStateOf(-1L) }
 
-    // Register download complete receiver
+    // Register download complete receiver (best-effort, ignore if it fails)
     DisposableEffect(context) {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
-                val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
-                if (id == downloadId && downloadId != -1L) {
-                    val query = DownloadManager.Query().setFilterById(id)
-                    val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-                    val cursor = dm.query(query)
-                    if (cursor.moveToFirst()) {
-                        val status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
-                        if (status == DownloadManager.STATUS_SUCCESSFUL) {
-                            val uri = dm.getUriForDownloadedFile(id)
-                            if (uri != null) {
-                                val installIntent = Intent(Intent.ACTION_VIEW).apply {
-                                    setDataAndType(uri, "application/vnd.android.package-archive")
-                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                runCatching {
+                    val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
+                    if (id == downloadId && downloadId != -1L) {
+                        val query = DownloadManager.Query().setFilterById(id)
+                        val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                        val cursor = dm.query(query)
+                        if (cursor.moveToFirst()) {
+                            val status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+                            if (status == DownloadManager.STATUS_SUCCESSFUL) {
+                                val uri = dm.getUriForDownloadedFile(id)
+                                if (uri != null) {
+                                    val installIntent = Intent(Intent.ACTION_VIEW).apply {
+                                        setDataAndType(uri, "application/vnd.android.package-archive")
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    }
+                                    context.startActivity(installIntent)
                                 }
-                                runCatching { context.startActivity(installIntent) }
                             }
                         }
+                        cursor.close()
                     }
-                    cursor.close()
                 }
             }
         }
-        context.registerReceiver(receiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE))
+        runCatching {
+            val filter = IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                context.registerReceiver(receiver, filter)
+            }
+        }
         onDispose { runCatching { context.unregisterReceiver(receiver) } }
     }
 
@@ -900,6 +946,188 @@ private fun HomeBottomBar(
                                 text = stringResource(item.labelRes),
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.SemiBold,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+private fun ViewRecordScreen(
+    log: BowelLogEntity,
+    onEdit: () -> Unit,
+    onBack: () -> Unit,
+) {
+    val stoolName = stringResource(stoolOptions.firstOrNull { it.value == log.stoolForm }?.labelRes ?: R.string.smooth)
+    val durationMinutes = log.durationSeconds / 60
+    val durationLabel = if (durationMinutes > 0) "$durationMinutes min" else "<1 min"
+    val symptomTags = log.symptomTags()
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            TopAppBar(
+                title = { Text(log.dateKey, fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = null)
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onEdit) {
+                        Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.edit_record))
+                    }
+                },
+            )
+        },
+    ) { paddingValues ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues),
+            contentPadding = PaddingValues(start = 24.dp, top = 8.dp, end = 24.dp, bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            item {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color.White,
+                    tonalElevation = 3.dp,
+                    shadowElevation = 8.dp,
+                ) {
+                    Row(
+                        modifier = Modifier.padding(18.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Column {
+                            Text(
+                                text = stringResource(R.string.consistency),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = "$stoolName (Type ${log.stoolForm})",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
+                        stoolOptions.firstOrNull { it.value == log.stoolForm }?.let { option ->
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                                    .background(option.circleColor),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    option.icon,
+                                    contentDescription = null,
+                                    tint = option.contentColor,
+                                    modifier = Modifier.size(24.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            item {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color.White,
+                    tonalElevation = 3.dp,
+                    shadowElevation = 8.dp,
+                ) {
+                    Column(modifier = Modifier.padding(18.dp)) {
+                        Text(
+                            text = stringResource(R.string.time),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = log.occurredAt.replace("T", " "),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            text = stringResource(R.string.duration),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = durationLabel,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
+            }
+            if (symptomTags.isNotEmpty()) {
+                item {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
+                        color = Color.White,
+                        tonalElevation = 3.dp,
+                        shadowElevation = 8.dp,
+                    ) {
+                        Column(modifier = Modifier.padding(18.dp)) {
+                            Text(
+                                text = stringResource(R.string.symptoms_details),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                symptomTags.forEach { tag ->
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.secondaryContainer,
+                                        shape = RoundedCornerShape(999.dp),
+                                    ) {
+                                        Text(
+                                            text = tag,
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if (log.detailNote.isNotBlank()) {
+                item {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
+                        color = Color.White,
+                        tonalElevation = 3.dp,
+                        shadowElevation = 8.dp,
+                    ) {
+                        Column(modifier = Modifier.padding(18.dp)) {
+                            Text(
+                                text = stringResource(R.string.journal_notes),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = log.detailNote,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface,
                             )
                         }
                     }
@@ -2196,14 +2424,42 @@ private fun SettingsScreen(
     onExportLogs: (Uri) -> Unit,
     onImportLogs: (Uri) -> Unit,
     onValidateAndSwitchServer: (String) -> Unit,
+    onValidateAndSwitchSupabaseServer: (String, String) -> Unit,
+    onSetServerType: (String) -> Unit,
     onLanguageChange: (String) -> Unit,
     onLogout: () -> Unit,
     onBack: () -> Unit,
 ) {
     var nickname by rememberSaveable(state.profile?.displayName) { mutableStateOf(state.profile?.displayName.orEmpty()) }
     var serverBaseUrl by rememberSaveable(settingsState.serverBaseUrl) { mutableStateOf(settingsState.serverBaseUrl) }
-    val avatarLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) onUploadAvatar(uri)
+    var supabaseAnonKey by rememberSaveable(settingsState.supabaseAnonKey) { mutableStateOf(settingsState.supabaseAnonKey) }
+    val isSupabase = settingsState.serverType == "supabase"
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val cropOptions = CropImageOptions(
+        imageSourceIncludeGallery = false,
+        imageSourceIncludeCamera = false,
+        cropShape = CropImageView.CropShape.OVAL,
+        guidelines = CropImageView.Guidelines.ON,
+        fixAspectRatio = true,
+        aspectRatioX = 1,
+        aspectRatioY = 1,
+        multiTouchEnabled = true,
+        outputCompressFormat = Bitmap.CompressFormat.JPEG,
+        outputCompressQuality = 90,
+    )
+    val cropAvatarLauncher = rememberLauncherForActivityResult(CropImageContract()) { result ->
+        if (result.isSuccessful) {
+            result.uriContent?.let { onUploadAvatar(it) }
+        } else {
+            result.error?.let { error ->
+                Toast.makeText(context, error.message ?: "Crop failed", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+    val pickAvatarLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) {
+            cropAvatarLauncher.launch(CropImageContractOptions(uri, cropOptions))
+        }
     }
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
         if (uri != null) onExportLogs(uri)
@@ -2256,7 +2512,7 @@ private fun SettingsScreen(
                         )
                         Text(state.session.email)
                         OutlinedButton(onClick = {
-                            avatarLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                            pickAvatarLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                         }) {
                             Text(stringResource(R.string.choose_avatar))
                         }
@@ -2298,6 +2554,22 @@ private fun SettingsScreen(
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        // Server type selector
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            FilterChip(
+                                selected = !isSupabase,
+                                onClick = { onSetServerType("rest") },
+                                label = { Text("DumpDiary Server") },
+                                modifier = Modifier.weight(1f),
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            FilterChip(
+                                selected = isSupabase,
+                                onClick = { onSetServerType("supabase") },
+                                label = { Text("Supabase") },
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
                         OutlinedTextField(
                             value = serverBaseUrl,
                             onValueChange = { serverBaseUrl = it },
@@ -2305,11 +2577,26 @@ private fun SettingsScreen(
                             supportingText = { Text(stringResource(R.string.server_switch_hint)) },
                             modifier = Modifier.fillMaxWidth(),
                         )
+                        if (isSupabase) {
+                            OutlinedTextField(
+                                value = supabaseAnonKey,
+                                onValueChange = { supabaseAnonKey = it },
+                                label = { Text("Anon Key") },
+                                supportingText = { Text("Supabase project anon key") },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
                         FilledTonalButton(
-                            onClick = { onValidateAndSwitchServer(serverBaseUrl) },
+                            onClick = {
+                                if (isSupabase) onValidateAndSwitchSupabaseServer(serverBaseUrl, supabaseAnonKey)
+                                else onValidateAndSwitchServer(serverBaseUrl)
+                            },
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             Text(stringResource(R.string.verify_and_switch))
+                        }
+                        if (settingsState.isServerValidating) {
+                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                         }
                         settingsState.serverStatusMessage?.let { status ->
                             Text(
@@ -2394,28 +2681,53 @@ private fun ProfileAvatar(
     displayName: String,
     modifier: Modifier = Modifier,
 ) {
+    val borderModifier = modifier
+        .clip(CircleShape)
+        .border(2.dp, MaterialTheme.colorScheme.primaryContainer, CircleShape)
     if (avatarUrl != null) {
-        AsyncImage(
-            model = avatarUrl,
-            contentDescription = null,
-            modifier = modifier
-                .clip(CircleShape)
-                .border(2.dp, MaterialTheme.colorScheme.primaryContainer, CircleShape),
-        )
-    } else {
-        Box(
-            modifier = modifier
-                .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
-                .border(2.dp, MaterialTheme.colorScheme.primaryContainer, CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = displayName.take(1).uppercase(Locale.getDefault()),
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                fontWeight = FontWeight.Bold,
+        if (avatarUrl.startsWith("data:image/")) {
+            val bitmap = remember(avatarUrl) {
+                runCatching {
+                    val base64 = avatarUrl.substringAfter("base64,")
+                    val bytes = Base64.decode(base64, Base64.DEFAULT)
+                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                }.getOrNull()
+            }
+            if (bitmap != null) {
+                Image(
+                    bitmap = bitmap.asImageBitmap(),
+                    contentDescription = null,
+                    modifier = borderModifier,
+                )
+            } else {
+                FallbackAvatar(displayName, modifier)
+            }
+        } else {
+            AsyncImage(
+                model = avatarUrl,
+                contentDescription = null,
+                modifier = borderModifier,
             )
         }
+    } else {
+        FallbackAvatar(displayName, modifier)
+    }
+}
+
+@Composable
+private fun FallbackAvatar(displayName: String, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
+            .border(2.dp, MaterialTheme.colorScheme.primaryContainer, CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = displayName.take(1).uppercase(Locale.getDefault()),
+            style = MaterialTheme.typography.headlineSmall,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            fontWeight = FontWeight.Bold,
+        )
     }
 }
 

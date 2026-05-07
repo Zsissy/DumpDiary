@@ -36,7 +36,7 @@ class SupabaseAuthRepository @Inject constructor(
         val normalizedUsername = username.trim()
 
         if (normalizedUsername == ADMIN_USERNAME && password == ADMIN_PASSWORD) {
-            val session = createAdminSession()
+            val session = findOrCreateAdminSession()
             persistSession(session)
             return session
         }
@@ -152,30 +152,92 @@ class SupabaseAuthRepository @Inject constructor(
     }
 
     suspend fun updateNickname(userId: String, nickname: String) {
-        api.updateUserById(id = "eq.$userId", user = SupabaseUser(nickname = nickname))
+        val realUserId = resolveAdminUserId(userId)
+        api.updateUserById(id = "eq.$realUserId", user = SupabaseUser(nickname = nickname))
     }
 
     suspend fun updateMatchCode(userId: String, matchCode: String) {
-        api.updateUserById(id = "eq.$userId", user = SupabaseUser(matchCode = matchCode))
+        val realUserId = resolveAdminUserId(userId)
+        api.updateUserById(id = "eq.$realUserId", user = SupabaseUser(matchCode = matchCode))
     }
 
     suspend fun updatePassword(userId: String, newPassword: String) {
-        api.updateUserById(id = "eq.$userId", user = SupabaseUser(password = newPassword))
+        val realUserId = resolveAdminUserId(userId)
+        api.updateUserById(id = "eq.$realUserId", user = SupabaseUser(password = newPassword))
     }
 
     suspend fun updateAvatar(userId: String, avatar: String) {
-        api.updateUserById(id = "eq.$userId", user = SupabaseUser(avatar = avatar))
+        val realUserId = resolveAdminUserId(userId)
+        api.updateUserById(id = "eq.$realUserId", user = SupabaseUser(avatar = avatar))
     }
 
-    private suspend fun createAdminSession(): SupabaseSession {
+    private suspend fun resolveAdminUserId(userId: String): String {
+        if (userId != "admin") return userId
+        // Admin needs a real UUID from the database
+        val users = api.getUserByUsername(username = "eq.$ADMIN_USERNAME")
+        val adminUser = users.firstOrNull()
+        if (adminUser != null) return adminUser.id
+        // Auto-create admin user if not exists
+        val now = Clock.System.now().toString()
+        api.insertUser(
+            SupabaseUser(
+                username = ADMIN_USERNAME,
+                nickname = ADMIN_USERNAME,
+                password = ADMIN_PASSWORD,
+                role = "admin",
+                status = "approved",
+                matchCode = "",
+                createdAt = now,
+                reviewedAt = now,
+                reviewedBy = "system",
+            )
+        )
+        val newUsers = api.getUserByUsername(username = "eq.$ADMIN_USERNAME")
+        return newUsers.firstOrNull()?.id ?: userId
+    }
+
+    private suspend fun findOrCreateAdminSession(): SupabaseSession {
         val prefs = preferencesRepository.preferences.first()
-        return SupabaseSession(
-            userId = "admin",
+        // Try to find existing admin user in database
+        val existingUsers = api.getUserByUsername(username = "eq.$ADMIN_USERNAME")
+        val existingAdmin = existingUsers.firstOrNull()
+        if (existingAdmin != null) {
+            return SupabaseSession(
+                userId = existingAdmin.id,
+                username = existingAdmin.username,
+                nickname = existingAdmin.nickname.ifBlank { existingAdmin.username },
+                role = existingAdmin.role,
+                avatar = existingAdmin.avatar,
+                matchCode = existingAdmin.matchCode,
+                serverBaseUrl = prefs.serverBaseUrl,
+                anonKey = prefs.supabaseAnonKey,
+            )
+        }
+        // Auto-create admin user in database
+        val now = Clock.System.now().toString()
+        val adminUser = SupabaseUser(
             username = ADMIN_USERNAME,
             nickname = ADMIN_USERNAME,
+            password = ADMIN_PASSWORD,
             role = "admin",
-            avatar = "",
+            status = "approved",
             matchCode = "",
+            createdAt = now,
+            reviewedAt = now,
+            reviewedBy = "system",
+        )
+        api.insertUser(adminUser)
+        // Fetch the newly created user to get the UUID
+        val newUsers = api.getUserByUsername(username = "eq.$ADMIN_USERNAME")
+        val newAdmin = newUsers.firstOrNull()
+            ?: error("Failed to create admin user.")
+        return SupabaseSession(
+            userId = newAdmin.id,
+            username = newAdmin.username,
+            nickname = newAdmin.nickname.ifBlank { newAdmin.username },
+            role = newAdmin.role,
+            avatar = newAdmin.avatar,
+            matchCode = newAdmin.matchCode,
             serverBaseUrl = prefs.serverBaseUrl,
             anonKey = prefs.supabaseAnonKey,
         )

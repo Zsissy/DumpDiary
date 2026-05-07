@@ -6,6 +6,7 @@ import com.dumpdiary.app.ui.AuthViewModel_HiltModules;
 import com.dumpdiary.app.ui.DiaryViewModel_HiltModules;
 import com.dumpdiary.app.ui.MainViewModel_HiltModules;
 import com.dumpdiary.app.ui.SettingsViewModel_HiltModules;
+import com.dumpdiary.app.worker.SupabaseSyncWorker_HiltModule;
 import com.dumpdiary.app.worker.SyncWorker_HiltModule;
 import dagger.Binds;
 import dagger.Component;
@@ -137,6 +138,7 @@ public final class DumpDiaryApplication_HiltComponents {
           ServiceCBuilderModule.class,
           HiltWrapper_FragmentGetContextFix_FragmentGetContextFixModule.class,
           HiltWrapper_WorkerFactoryModule.class,
+          SupabaseSyncWorker_HiltModule.class,
           SyncWorker_HiltModule.class
       }
   )

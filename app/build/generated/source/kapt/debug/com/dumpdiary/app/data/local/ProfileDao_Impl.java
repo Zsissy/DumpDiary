@@ -129,7 +129,7 @@ public final class ProfileDao_Impl implements ProfileDao {
 
   @Override
   public Flow<UserProfileEntity> observeProfile() {
-    final String _sql = "SELECT * FROM profile LIMIT 1";
+    final String _sql = "SELECT * FROM profile ORDER BY updatedAt DESC LIMIT 1";
     final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 0);
     return CoroutinesRoom.createFlow(__db, false, new String[] {"profile"}, new Callable<UserProfileEntity>() {
       @Override
@@ -193,7 +193,7 @@ public final class ProfileDao_Impl implements ProfileDao {
 
   @Override
   public Object getProfile(final Continuation<? super UserProfileEntity> $completion) {
-    final String _sql = "SELECT * FROM profile LIMIT 1";
+    final String _sql = "SELECT * FROM profile ORDER BY updatedAt DESC LIMIT 1";
     final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 0);
     final CancellationSignal _cancellationSignal = DBUtil.createCancellationSignal();
     return CoroutinesRoom.execute(__db, false, _cancellationSignal, new Callable<UserProfileEntity>() {

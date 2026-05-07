@@ -168,7 +168,7 @@ object AppModule {
     @Provides
     @Singleton
     fun provideSupabaseApi(@Named("supabase") supabaseOkHttpClient: OkHttpClient): SupabaseApi {
-        val json = Json { ignoreUnknownKeys = true }
+        val json = Json { ignoreUnknownKeys = true; encodeDefaults = false }
         return Retrofit.Builder()
             .baseUrl(placeholderBaseUrl)
             .client(supabaseOkHttpClient)

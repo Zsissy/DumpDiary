@@ -35,28 +35,39 @@ public final class AuthRepository_Factory implements Factory<AuthRepository> {
 
   private final Provider<LogDao> logDaoProvider;
 
+  private final Provider<ServerConfigRepository> serverConfigRepositoryProvider;
+
+  private final Provider<FriendRepository> friendRepositoryProvider;
+
   public AuthRepository_Factory(Provider<DumpDiaryApi> apiProvider,
       Provider<UserPreferencesRepository> preferencesRepositoryProvider,
-      Provider<ProfileDao> profileDaoProvider, Provider<LogDao> logDaoProvider) {
+      Provider<ProfileDao> profileDaoProvider, Provider<LogDao> logDaoProvider,
+      Provider<ServerConfigRepository> serverConfigRepositoryProvider,
+      Provider<FriendRepository> friendRepositoryProvider) {
     this.apiProvider = apiProvider;
     this.preferencesRepositoryProvider = preferencesRepositoryProvider;
     this.profileDaoProvider = profileDaoProvider;
     this.logDaoProvider = logDaoProvider;
+    this.serverConfigRepositoryProvider = serverConfigRepositoryProvider;
+    this.friendRepositoryProvider = friendRepositoryProvider;
   }
 
   @Override
   public AuthRepository get() {
-    return newInstance(apiProvider.get(), preferencesRepositoryProvider.get(), profileDaoProvider.get(), logDaoProvider.get());
+    return newInstance(apiProvider.get(), preferencesRepositoryProvider.get(), profileDaoProvider.get(), logDaoProvider.get(), serverConfigRepositoryProvider.get(), friendRepositoryProvider.get());
   }
 
   public static AuthRepository_Factory create(Provider<DumpDiaryApi> apiProvider,
       Provider<UserPreferencesRepository> preferencesRepositoryProvider,
-      Provider<ProfileDao> profileDaoProvider, Provider<LogDao> logDaoProvider) {
-    return new AuthRepository_Factory(apiProvider, preferencesRepositoryProvider, profileDaoProvider, logDaoProvider);
+      Provider<ProfileDao> profileDaoProvider, Provider<LogDao> logDaoProvider,
+      Provider<ServerConfigRepository> serverConfigRepositoryProvider,
+      Provider<FriendRepository> friendRepositoryProvider) {
+    return new AuthRepository_Factory(apiProvider, preferencesRepositoryProvider, profileDaoProvider, logDaoProvider, serverConfigRepositoryProvider, friendRepositoryProvider);
   }
 
   public static AuthRepository newInstance(DumpDiaryApi api,
-      UserPreferencesRepository preferencesRepository, ProfileDao profileDao, LogDao logDao) {
-    return new AuthRepository(api, preferencesRepository, profileDao, logDao);
+      UserPreferencesRepository preferencesRepository, ProfileDao profileDao, LogDao logDao,
+      ServerConfigRepository serverConfigRepository, FriendRepository friendRepository) {
+    return new AuthRepository(api, preferencesRepository, profileDao, logDao, serverConfigRepository, friendRepository);
   }
 }

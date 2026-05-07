@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.dumpdiary.app-mergeDebugResources-71:/values-en-rGB/values-en-rGB.xml",
+            "outputFile": "com.dumpdiary.app-mergeDebugResources-73:/values-en-rGB/values-en-rGB.xml",
             "map": [
                 {
                     "source": "/Users/zhengxiqiao/.gradle/caches/8.10.2/transforms/62176c6f27913216b4ca9df0b2792692/transformed/foundation-release/res/values-en-rGB/values-en-rGB.xml",

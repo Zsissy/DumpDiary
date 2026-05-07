@@ -21,6 +21,7 @@ data class MainUiState(
     val session: AppSession = AppSession(false, "", "", "", "", "en", ""),
     val profile: UserProfileUi? = null,
     val languageTag: String = "en",
+    val isReady: Boolean = false,
 )
 
 @HiltViewModel
@@ -38,10 +39,11 @@ class MainViewModel @Inject constructor(
             session = session,
             profile = profile,
             languageTag = session.languageTag,
+            isReady = true,
         )
     }.distinctUntilChanged().stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
+        started = SharingStarted.Eagerly,
         initialValue = MainUiState(),
     )
 

@@ -14,11 +14,11 @@ import kotlinx.coroutines.flow.Flow;
 @androidx.room.Dao()
 public abstract interface ProfileDao {
     
-    @androidx.room.Query(value = "SELECT * FROM profile LIMIT 1")
+    @androidx.room.Query(value = "SELECT * FROM profile ORDER BY updatedAt DESC LIMIT 1")
     @org.jetbrains.annotations.NotNull()
     public abstract kotlinx.coroutines.flow.Flow<com.dumpdiary.app.data.model.UserProfileEntity> observeProfile();
     
-    @androidx.room.Query(value = "SELECT * FROM profile LIMIT 1")
+    @androidx.room.Query(value = "SELECT * FROM profile ORDER BY updatedAt DESC LIMIT 1")
     @org.jetbrains.annotations.Nullable()
     public abstract java.lang.Object getProfile(@org.jetbrains.annotations.NotNull()
     kotlin.coroutines.Continuation<? super com.dumpdiary.app.data.model.UserProfileEntity> $completion);

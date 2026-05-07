@@ -7,12 +7,12 @@ public final class BuildConfig {
   public static final boolean DEBUG = Boolean.parseBoolean("true");
   public static final String APPLICATION_ID = "com.dumpdiary.app";
   public static final String BUILD_TYPE = "debug";
-  public static final int VERSION_CODE = 2;
-  public static final String VERSION_NAME = "1.1";
+  public static final int VERSION_CODE = 4;
+  public static final String VERSION_NAME = "1.3";
   // Field from default config.
-  public static final String API_BASE_URL = "http://10.12.251.123:8080/";
+  public static final String API_BASE_URL = "https://placeholder.invalid/";
   // Field from default config.
-  public static final int APP_VERSION_CODE = 2;
+  public static final int APP_VERSION_CODE = 4;
   // Field from default config.
-  public static final String APP_VERSION_NAME = "1.1";
+  public static final String APP_VERSION_NAME = "1.3";
 }

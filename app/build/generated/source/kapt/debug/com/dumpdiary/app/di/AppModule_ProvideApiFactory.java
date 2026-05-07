@@ -11,7 +11,7 @@ import javax.inject.Provider;
 import okhttp3.OkHttpClient;
 
 @ScopeMetadata("javax.inject.Singleton")
-@QualifierMetadata
+@QualifierMetadata("javax.inject.Named")
 @DaggerGenerated
 @Generated(
     value = "dagger.internal.codegen.ComponentProcessor",

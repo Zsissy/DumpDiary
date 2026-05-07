@@ -84,6 +84,13 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun setServerType(type: String) {
+        viewModelScope.launch {
+            preferencesRepository.updateServerType(type)
+            _uiState.update { it.copy(serverType = type) }
+        }
+    }
+
     fun validateAndSwitchSupabaseServer(baseUrl: String, anonKey: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, isServerValidating = true, message = null, serverStatusMessage = null) }
