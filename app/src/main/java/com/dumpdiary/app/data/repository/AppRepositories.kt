@@ -10,8 +10,6 @@ import com.dumpdiary.app.data.local.ProfileDao
 import com.dumpdiary.app.data.local.UserPreferences
 import com.dumpdiary.app.data.local.UserPreferencesRepository
 import com.dumpdiary.app.data.model.AuthRequestDto
-import com.dumpdiary.app.data.model.AppVersionDto
-import com.dumpdiary.app.data.model.BowelLogDto
 import com.dumpdiary.app.data.model.BowelLogEntity
 import com.dumpdiary.app.data.model.AddFriendRequestDto
 import com.dumpdiary.app.data.model.FriendProfileDto
@@ -28,7 +26,6 @@ import com.dumpdiary.app.data.model.toDto
 import com.dumpdiary.app.data.model.toEntity
 import com.dumpdiary.app.data.remote.DumpDiaryApi
 import com.dumpdiary.app.worker.SyncWorker
-import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -36,14 +33,18 @@ import java.util.Locale
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import kotlinx.datetime.Clock
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
 
 data class AppSession(
     val isLoggedIn: Boolean,
@@ -52,6 +53,11 @@ data class AppSession(
     val userId: String,
     val email: String,
     val languageTag: String,
+    val serverBaseUrl: String,
+    val serverType: String = "rest",
+    val supabaseAnonKey: String = "",
+    val username: String = "",
+    val matchCode: String = "",
 )
 
 data class UserProfileUi(
@@ -88,16 +94,56 @@ data class BowelLogInput(
 @Singleton
 class AppUpdateRepository @Inject constructor(
     private val api: DumpDiaryApi,
+    private val serverConfigRepository: ServerConfigRepository,
+    private val preferencesRepository: UserPreferencesRepository,
 ) {
+    private val updateCheckClient = OkHttpClient()
+
     suspend fun checkForUpdate(): AppUpdateUi? {
+        val serverType = runCatching { preferencesRepository.preferences.first().serverType }.getOrDefault("rest")
+        return if (serverType == "supabase") {
+            checkForSupabaseUpdate()
+        } else {
+            checkForRestUpdate()
+        }
+    }
+
+    private suspend fun checkForRestUpdate(): AppUpdateUi? {
+        val serverBaseUrl = serverConfigRepository.getServerBaseUrl()
+        if (serverBaseUrl.isBlank()) return null
         val latest = api.getLatestAppVersion()
         if (latest.versionCode <= com.dumpdiary.app.BuildConfig.APP_VERSION_CODE) return null
         return AppUpdateUi(
             versionCode = latest.versionCode,
             versionName = latest.versionName,
-            downloadUrl = latest.downloadPath.toResolvedDownloadUrl(),
+            downloadUrl = latest.downloadPath.toResolvedDownloadUrl(serverBaseUrl),
             notes = latest.notes,
         )
+    }
+
+    private suspend fun checkForSupabaseUpdate(): AppUpdateUi? {
+        val versionUrl = "https://zsissy.github.io/DumpDiary/version.json"
+        return withContext(Dispatchers.IO) {
+            val request = Request.Builder().url(versionUrl).get().build()
+            val response = runCatching { updateCheckClient.newCall(request).execute() }
+                .getOrElse { return@withContext null }
+            response.use { httpResponse ->
+                if (!httpResponse.isSuccessful) return@withContext null
+                val body = httpResponse.body?.string() ?: return@withContext null
+                val json = JSONObject(body)
+                val versionCode = json.optInt("versionCode", 0)
+                val versionName = json.optString("versionName", "")
+                val downloadUrl = json.optString("downloadUrl", "")
+                val notes = json.optString("notes", "")
+                if (versionCode <= com.dumpdiary.app.BuildConfig.APP_VERSION_CODE) return@withContext null
+                AppUpdateUi(
+                    versionCode = versionCode,
+                    versionName = versionName,
+                    downloadUrl = downloadUrl,
+                    notes = notes,
+                )
+            }
+        }
     }
 }
 
@@ -107,15 +153,22 @@ class AuthRepository @Inject constructor(
     private val preferencesRepository: UserPreferencesRepository,
     private val profileDao: ProfileDao,
     private val logDao: LogDao,
+    private val serverConfigRepository: ServerConfigRepository,
+    private val friendRepository: FriendRepository,
 ) {
     val sessionFlow: Flow<AppSession> = preferencesRepository.preferences.map { prefs ->
         AppSession(
-            isLoggedIn = prefs.accessToken.isNotBlank(),
+            isLoggedIn = if (prefs.serverType == "supabase") prefs.userId.isNotBlank() else prefs.accessToken.isNotBlank(),
             accessToken = prefs.accessToken,
             refreshToken = prefs.refreshToken,
             userId = prefs.userId,
             email = prefs.email,
             languageTag = prefs.languageTag,
+            serverBaseUrl = prefs.serverBaseUrl,
+            serverType = prefs.serverType,
+            supabaseAnonKey = prefs.supabaseAnonKey,
+            username = prefs.username,
+            matchCode = prefs.matchCode,
         )
     }
 
@@ -128,13 +181,15 @@ class AuthRepository @Inject constructor(
     suspend fun register(email: String, password: String, code: String) {
         val response = api.register(RegisterRequestDto(email = email, password = password, code = code))
         persistSession(response.accessToken, response.refreshToken, response.userId, response.email)
-        profileDao.upsert(response.profile.toEntity(response.email))
+        val serverBaseUrl = serverConfigRepository.requireConfiguredBaseUrl()
+        profileDao.upsert(response.profile.toEntity(response.email, avatarUrl = response.profile.avatarUrl?.resolveRemoteUrl(serverBaseUrl)))
     }
 
     suspend fun login(email: String, password: String) {
         val response = api.login(AuthRequestDto(email = email, password = password))
         persistSession(response.accessToken, response.refreshToken, response.userId, response.email)
-        profileDao.upsert(response.profile.toEntity(response.email))
+        val serverBaseUrl = serverConfigRepository.requireConfiguredBaseUrl()
+        profileDao.upsert(response.profile.toEntity(response.email, avatarUrl = response.profile.avatarUrl?.resolveRemoteUrl(serverBaseUrl)))
     }
 
     suspend fun resetPassword(email: String, code: String, newPassword: String): MessageDto =
@@ -146,16 +201,16 @@ class AuthRepository @Inject constructor(
         return runCatching {
             val response = api.refresh(RefreshRequestDto(prefs.refreshToken))
             persistSession(response.accessToken, response.refreshToken, response.userId, response.email)
-            profileDao.upsert(response.profile.toEntity(response.email))
+            val serverBaseUrl = serverConfigRepository.requireConfiguredBaseUrl()
+            profileDao.upsert(response.profile.toEntity(response.email, avatarUrl = response.profile.avatarUrl?.resolveRemoteUrl(serverBaseUrl)))
             true
         }.getOrDefault(false)
     }
 
     suspend fun logout() {
         runCatching { api.logout() }
-        preferencesRepository.clearSession()
-        profileDao.clear()
-        logDao.clear()
+        serverConfigRepository.clearRuntimeCaches()
+        friendRepository.clearFriends()
     }
 
     private suspend fun persistSession(accessToken: String, refreshToken: String, userId: String, email: String) {
@@ -174,6 +229,7 @@ class ProfileRepository @Inject constructor(
     private val profileDao: ProfileDao,
     private val preferencesRepository: UserPreferencesRepository,
     private val contentResolver: ContentResolver,
+    private val serverConfigRepository: ServerConfigRepository,
 ) {
     val profileFlow: Flow<UserProfileUi?> = profileDao.observeProfile().map { entity ->
         entity?.let {
@@ -188,11 +244,15 @@ class ProfileRepository @Inject constructor(
 
     suspend fun refreshProfile() {
         val prefs = preferencesRepository.preferences.first()
+        val serverBaseUrl = prefs.serverBaseUrl
         if (prefs.accessToken.isBlank()) return
         val localProfile = profileDao.getProfile()?.takeIf { it.userId == prefs.userId }
         val resolvedProfile = runCatching {
             val remote = api.getProfile()
-            remote.toEntity(email = prefs.email)
+            remote.toEntity(
+                email = prefs.email,
+                avatarUrl = remote.avatarUrl?.resolveRemoteUrl(serverBaseUrl),
+            )
         }.getOrElse {
             localProfile ?: prefs.toFallbackProfile()
         }
@@ -201,8 +261,9 @@ class ProfileRepository @Inject constructor(
 
     suspend fun updateDisplayName(displayName: String) {
         val prefs = preferencesRepository.preferences.first()
+        val serverBaseUrl = serverConfigRepository.requireConfiguredBaseUrl()
         val updated = api.updateProfile(UpdateProfileRequestDto(displayName))
-        profileDao.upsert(updated.toEntity(email = prefs.email))
+        profileDao.upsert(updated.toEntity(email = prefs.email, avatarUrl = updated.avatarUrl?.resolveRemoteUrl(serverBaseUrl)))
     }
 
     suspend fun uploadAvatar(uri: Uri) {
@@ -213,7 +274,8 @@ class ProfileRepository @Inject constructor(
         val avatarPart = MultipartBody.Part.createFormData("avatar", "avatar.jpg", requestBody)
         val response = api.uploadAvatar(avatarPart)
         val current = profileDao.getProfile() ?: return
-        profileDao.upsert(current.copy(avatarUrl = "${com.dumpdiary.app.BuildConfig.API_BASE_URL.removeSuffix("/")}${response.avatarUrl}"))
+        val serverBaseUrl = serverConfigRepository.requireConfiguredBaseUrl()
+        profileDao.upsert(current.copy(avatarUrl = response.avatarUrl.resolveRemoteUrl(serverBaseUrl)))
     }
 }
 
@@ -231,13 +293,17 @@ class FriendRepository @Inject constructor(
             _friendsFlow.value = emptyList()
             return
         }
-        _friendsFlow.value = api.getFriends().map { it.toUi() }
+        _friendsFlow.value = api.getFriends().map { it.toUi(prefs.serverBaseUrl) }
     }
 
     suspend fun addFriend(email: String): MessageDto {
         val response = api.addFriend(AddFriendRequestDto(email.trim()))
         refreshFriends()
         return response
+    }
+
+    fun clearFriends() {
+        _friendsFlow.value = emptyList()
     }
 }
 
@@ -249,11 +315,16 @@ class LogRepository @Inject constructor(
     private val preferencesRepository: UserPreferencesRepository,
     private val contentResolver: ContentResolver,
     private val workManager: WorkManager,
+    private val supabaseRoomRepository: SupabaseRoomRepository,
 ) {
     val logsFlow: Flow<List<BowelLogEntity>> = logDao.observeActiveLogs()
 
     suspend fun createOrUpdate(input: BowelLogInput) {
         val prefs = preferencesRepository.preferences.first()
+        if (prefs.serverType == "supabase") {
+            supabaseRoomRepository.createOrUpdate(input, prefs.userId)
+            return
+        }
         val profile = resolveProfile(prefs)
         val now = Clock.System.now().toString()
         val occurredAt = input.occurredAt
@@ -281,6 +352,11 @@ class LogRepository @Inject constructor(
     }
 
     suspend fun markDeleted(id: String) {
+        val prefs = preferencesRepository.preferences.first()
+        if (prefs.serverType == "supabase") {
+            supabaseRoomRepository.markDeleted(id)
+            return
+        }
         val current = logDao.getById(id) ?: return
         logDao.upsert(current.copy(isDeleted = true, pendingSyncAction = "DELETE", updatedAt = Clock.System.now().toString()))
         enqueueSync()
@@ -294,7 +370,10 @@ class LogRepository @Inject constructor(
                 "UPSERT" -> {
                     val response = runCatching { api.updateLog(entity.id, entity.toDto()) }
                         .getOrElse { api.createLog(entity.toDto()) }
-                    logDao.upsert(response.toEntity(syncAction = null))
+                    logDao.upsert(response.toEntity(
+                        syncAction = null,
+                        snapshotAvatarUrl = response.snapshotAvatarUrl?.resolveRemoteUrl(prefs.serverBaseUrl),
+                    ))
                 }
 
                 "DELETE" -> {
@@ -309,7 +388,14 @@ class LogRepository @Inject constructor(
         val prefs = preferencesRepository.preferences.first()
         if (prefs.accessToken.isBlank()) return
         val remoteLogs = api.getLogs()
-        logDao.upsertAll(remoteLogs.map { it.toEntity(syncAction = null) })
+        logDao.upsertAll(
+            remoteLogs.map {
+                it.toEntity(
+                    syncAction = null,
+                    snapshotAvatarUrl = it.snapshotAvatarUrl?.resolveRemoteUrl(prefs.serverBaseUrl),
+                )
+            },
+        )
     }
 
     suspend fun exportOwnLogsToCsv(uri: Uri): Int {
@@ -401,7 +487,7 @@ class LogRepository @Inject constructor(
 
     private fun enqueueSync() {
         workManager.enqueueUniqueWork(
-            "dump-diary-sync",
+            SYNC_WORK_NAME,
             ExistingWorkPolicy.REPLACE,
             OneTimeWorkRequestBuilder<SyncWorker>().build(),
         )
@@ -410,7 +496,11 @@ class LogRepository @Inject constructor(
     private suspend fun resolveProfile(prefs: UserPreferences): UserProfileEntity {
         profileDao.getProfile()?.takeIf { it.userId == prefs.userId }?.let { return it }
         val resolvedProfile = runCatching {
-            api.getProfile().toEntity(email = prefs.email)
+            val remote = api.getProfile()
+            remote.toEntity(
+                email = prefs.email,
+                avatarUrl = remote.avatarUrl?.resolveRemoteUrl(prefs.serverBaseUrl),
+            )
         }.getOrElse {
             prefs.toFallbackProfile()
         }
@@ -430,27 +520,22 @@ private fun UserPreferences.toFallbackProfile(): UserProfileEntity {
     )
 }
 
-private fun FriendProfileDto.toUi(): FriendUi =
+private fun FriendProfileDto.toUi(serverBaseUrl: String): FriendUi =
     FriendUi(
         userId = userId,
         email = email,
         displayName = displayName,
-        avatarUrl = avatarUrl?.let(::resolveAvatarUrl),
+        avatarUrl = avatarUrl?.resolveRemoteUrl(serverBaseUrl),
     )
 
-private fun resolveAvatarUrl(rawUrl: String): String =
-    if (rawUrl.startsWith("http://") || rawUrl.startsWith("https://")) {
-        rawUrl
-    } else {
-        "${com.dumpdiary.app.BuildConfig.API_BASE_URL.removeSuffix("/")}${rawUrl}"
-    }
-
-private fun String.toResolvedDownloadUrl(): String =
+private fun String.resolveRemoteUrl(serverBaseUrl: String): String =
     if (startsWith("http://") || startsWith("https://")) {
         this
     } else {
-        "${com.dumpdiary.app.BuildConfig.API_BASE_URL.removeSuffix("/")}/${removePrefix("/")}"
+        "${serverBaseUrl.removeSuffix("/")}/${removePrefix("/")}"
     }
+
+private fun String.toResolvedDownloadUrl(serverBaseUrl: String): String = resolveRemoteUrl(serverBaseUrl)
 
 private val csvHeaders = listOf(
     "id",

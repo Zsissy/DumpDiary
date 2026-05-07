@@ -4,23 +4,26 @@ import android.content.ContentResolver
 import android.content.Context
 import androidx.room.Room
 import androidx.work.WorkManager
-import com.dumpdiary.app.BuildConfig
 import com.dumpdiary.app.data.local.AppDatabase
 import com.dumpdiary.app.data.local.LogDao
 import com.dumpdiary.app.data.local.ProfileDao
 import com.dumpdiary.app.data.local.UserPreferencesRepository
 import com.dumpdiary.app.data.remote.DumpDiaryApi
+import com.dumpdiary.app.data.remote.SupabaseApi
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import javax.inject.Named
 import javax.inject.Singleton
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
 import okhttp3.Authenticator
+import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -30,6 +33,8 @@ import okhttp3.Route
 import okhttp3.logging.HttpLoggingInterceptor
 import org.json.JSONObject
 import retrofit2.Retrofit
+
+private val placeholderBaseUrl: HttpUrl = "https://placeholder.invalid/".toHttpUrl()
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -52,13 +57,22 @@ object AppModule {
     fun provideContentResolver(@ApplicationContext context: Context): ContentResolver = context.contentResolver
 
     @Provides
+    @Named("rest")
     @Singleton
     fun provideOkHttp(preferencesRepository: UserPreferencesRepository): OkHttpClient {
         val logging = HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY }
         return OkHttpClient.Builder()
             .addInterceptor { chain ->
                 val prefs = runBlocking { preferencesRepository.preferences.first() }
-                val request = chain.request().newBuilder().apply {
+                val originalRequest = chain.request()
+                val requestUrl = originalRequest.url
+                val rewrittenUrl = if (requestUrl.host == placeholderBaseUrl.host) {
+                    val baseUrl = prefs.serverBaseUrl.ifBlank { throw java.io.IOException("Please configure the server address first.") }
+                    resolveRuntimeUrl(baseUrl, requestUrl)
+                } else {
+                    requestUrl
+                }
+                val request = originalRequest.newBuilder().url(rewrittenUrl).apply {
                     if (prefs.accessToken.isNotBlank()) {
                         header("Authorization", "Bearer ${prefs.accessToken}")
                     }
@@ -72,12 +86,12 @@ object AppModule {
                 override fun authenticate(route: Route?, response: Response): Request? {
                     if (responseCount(response) >= 2) return null
                     val prefs = runBlocking { preferencesRepository.preferences.first() }
-                    if (prefs.refreshToken.isBlank()) return null
+                    if (prefs.refreshToken.isBlank() || prefs.serverBaseUrl.isBlank()) return null
                     val client = OkHttpClient()
                     val payload = JSONObject().put("refreshToken", prefs.refreshToken).toString()
                     val body = payload.toRequestBody("application/json".toMediaType())
                     val refreshRequest = Request.Builder()
-                        .url("${BuildConfig.API_BASE_URL}auth/refresh")
+                        .url("${prefs.serverBaseUrl}auth/refresh")
                         .post(body)
                         .build()
                     val refreshResponse = client.newCall(refreshRequest).execute()
@@ -108,14 +122,59 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideApi(okHttpClient: OkHttpClient): DumpDiaryApi {
+    fun provideApi(@Named("rest") okHttpClient: OkHttpClient): DumpDiaryApi {
         val json = Json { ignoreUnknownKeys = true }
         return Retrofit.Builder()
-            .baseUrl(BuildConfig.API_BASE_URL)
+            .baseUrl(placeholderBaseUrl)
             .client(okHttpClient)
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .build()
             .create(DumpDiaryApi::class.java)
+    }
+
+    @Provides
+    @Named("supabase")
+    @Singleton
+    fun provideSupabaseOkHttp(preferencesRepository: UserPreferencesRepository): OkHttpClient {
+        val logging = HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY }
+        return OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                val prefs = runBlocking { preferencesRepository.preferences.first() }
+                val anonKey = prefs.supabaseAnonKey.ifBlank {
+                    throw java.io.IOException("Please configure the Supabase anon key first.")
+                }
+                val serverUrl = prefs.serverBaseUrl.ifBlank {
+                    throw java.io.IOException("Please configure the server address first.")
+                }
+                val originalRequest = chain.request()
+                val requestUrl = originalRequest.url
+                val rewrittenUrl = if (requestUrl.host == placeholderBaseUrl.host) {
+                    resolveSupabaseUrl(serverUrl, requestUrl)
+                } else {
+                    requestUrl
+                }
+                val request = originalRequest.newBuilder()
+                    .url(rewrittenUrl)
+                    .header("apikey", anonKey)
+                    .header("Authorization", "Bearer $anonKey")
+                    .header("Prefer", "return=representation")
+                    .build()
+                chain.proceed(request)
+            }
+            .addInterceptor(logging)
+            .build()
+    }
+
+    @Provides
+    @Singleton
+    fun provideSupabaseApi(@Named("supabase") supabaseOkHttpClient: OkHttpClient): SupabaseApi {
+        val json = Json { ignoreUnknownKeys = true }
+        return Retrofit.Builder()
+            .baseUrl(placeholderBaseUrl)
+            .client(supabaseOkHttpClient)
+            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
+            .build()
+            .create(SupabaseApi::class.java)
     }
 
     @Provides
@@ -130,5 +189,42 @@ object AppModule {
             prior = prior.priorResponse
         }
         return result
+    }
+
+    private fun resolveRuntimeUrl(baseUrl: String, originalUrl: HttpUrl): HttpUrl {
+        val runtimeBase = baseUrl.toHttpUrl()
+        return runtimeBase.newBuilder().apply {
+            val relativePath = originalUrl.encodedPath.removePrefix("/")
+            if (relativePath.isNotBlank()) {
+                addEncodedPathSegments(relativePath)
+            }
+            originalUrl.queryParameterNames.forEach { name ->
+                originalUrl.queryParameterValues(name).forEach { value ->
+                    addQueryParameter(name, value)
+                }
+            }
+        }.build()
+    }
+
+    private fun resolveSupabaseUrl(baseUrl: String, originalUrl: HttpUrl): HttpUrl {
+        val normalized = baseUrl.trimEnd('/')
+        val runtimeBase = "$normalized/rest/v1/".toHttpUrl()
+        return runtimeBase.newBuilder().apply {
+            val relativePath = originalUrl.encodedPath.removePrefix("/")
+            if (relativePath.isNotBlank()) {
+                addEncodedPathSegments(relativePath)
+            }
+            originalUrl.queryParameterNames.forEach { name ->
+                originalUrl.queryParameterValues(name).forEach { value ->
+                    addEncodedPathParameter(name, value)
+                }
+            }
+        }.build()
+    }
+
+    private fun HttpUrl.Builder.addEncodedPathParameter(name: String, value: String?) {
+        if (value != null) {
+            addQueryParameter(name, value)
+        }
     }
 }

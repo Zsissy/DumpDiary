@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 data class MainUiState(
-    val session: AppSession = AppSession(false, "", "", "", "", "en"),
+    val session: AppSession = AppSession(false, "", "", "", "", "en", ""),
     val profile: UserProfileUi? = null,
     val languageTag: String = "en",
 )

@@ -157,7 +157,7 @@ data class BowelLogEntity(
     val pendingSyncAction: String?,
 )
 
-fun UserProfileDto.toEntity(email: String) = UserProfileEntity(
+fun UserProfileDto.toEntity(email: String, avatarUrl: String? = this.avatarUrl) = UserProfileEntity(
     userId = userId,
     email = email,
     displayName = displayName,
@@ -189,7 +189,7 @@ fun BowelLogEntity.toDto() = BowelLogDto(
     isDeleted = isDeleted,
 )
 
-fun BowelLogDto.toEntity(syncAction: String? = null) = BowelLogEntity(
+fun BowelLogDto.toEntity(syncAction: String? = null, snapshotAvatarUrl: String? = this.snapshotAvatarUrl) = BowelLogEntity(
     id = id,
     userId = userId,
     occurredAt = occurredAt,

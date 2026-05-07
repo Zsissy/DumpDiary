@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     kotlin("android")
@@ -11,10 +13,16 @@ android {
     namespace = "com.dumpdiary.app"
     compileSdk = 36
     val resolvedApiBaseUrl = providers.gradleProperty("dumpDiaryApiBaseUrl")
-        .orElse("http://10.12.251.123:8080/")
+        .orElse("https://placeholder.invalid/")
         .get()
-    val appVersionCode = 2
-    val appVersionName = "1.1"
+    val appVersionCode = 3
+    val appVersionName = "1.2"
+    val keystorePropertiesFile = rootProject.file("app/keystore.properties")
+    val keystoreProperties = Properties().apply {
+        if (keystorePropertiesFile.exists()) {
+            keystorePropertiesFile.inputStream().use(::load)
+        }
+    }
 
     defaultConfig {
         applicationId = "com.dumpdiary.app"
@@ -29,9 +37,21 @@ android {
         buildConfigField("String", "APP_VERSION_NAME", "\"$appVersionName\"")
     }
 
+    signingConfigs {
+        create("release") {
+            if (keystorePropertiesFile.exists()) {
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -114,4 +134,13 @@ dependencies {
 
 kapt {
     correctErrorTypes = true
+}
+
+tasks.register<Copy>("exportReleaseApk") {
+    dependsOn("assembleRelease")
+    from(layout.buildDirectory.file("outputs/apk/release/app-release.apk"))
+    into(layout.buildDirectory.dir("dist"))
+    rename { "dumpdiary-${
+        android.defaultConfig.versionName ?: "release"
+    }.apk" }
 }

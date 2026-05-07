@@ -1,9 +1,17 @@
 package com.dumpdiary.app.ui
 
 import android.app.DatePickerDialog
+import android.app.DownloadManager
 import android.app.TimePickerDialog
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.net.Uri
+import android.os.Environment
 import android.text.format.DateFormat
+import android.widget.Toast
+import androidx.core.content.FileProvider
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -26,7 +34,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -76,6 +87,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -222,6 +234,10 @@ fun DumpDiaryApp(
                 LoginScreen(
                     uiState = authState,
                     onLogin = authViewModel::login,
+                    onSupabaseLogin = authViewModel::supabaseLogin,
+                    onValidateServer = authViewModel::validateAndSaveServer,
+                    onValidateSupabaseServer = authViewModel::validateAndSaveSupabaseServer,
+                    onSetServerType = authViewModel::setServerType,
                     onNavigateRegister = { navController.navigate("register") },
                     onNavigateForgot = { navController.navigate("forgot") },
                     onDismissUpdate = authViewModel::dismissUpdate,
@@ -232,6 +248,7 @@ fun DumpDiaryApp(
                     uiState = authState,
                     onSendCode = authViewModel::sendRegisterCode,
                     onRegister = authViewModel::register,
+                    onSupabaseRegister = authViewModel::supabaseRegister,
                     onBack = { navController.popBackStack() },
                 )
             }
@@ -293,6 +310,7 @@ fun DumpDiaryApp(
                     onUploadAvatar = settingsViewModel::uploadAvatar,
                     onExportLogs = settingsViewModel::exportLogs,
                     onImportLogs = settingsViewModel::importLogs,
+                    onValidateAndSwitchServer = settingsViewModel::validateAndSwitchServer,
                     onLanguageChange = {
                         mainViewModel.updateLanguage(it)
                         settingsViewModel.updateLanguage(it)
@@ -309,13 +327,53 @@ fun DumpDiaryApp(
 private fun LoginScreen(
     uiState: AuthUiState,
     onLogin: (String, String) -> Unit,
+    onSupabaseLogin: (String, String) -> Unit,
+    onValidateServer: (String) -> Unit,
+    onValidateSupabaseServer: (String, String) -> Unit,
+    onSetServerType: (String) -> Unit,
     onNavigateRegister: () -> Unit,
     onNavigateForgot: () -> Unit,
     onDismissUpdate: () -> Unit,
 ) {
     var email by rememberSaveable { mutableStateOf("") }
+    var username by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
-    val uriHandler = LocalUriHandler.current
+    var serverBaseUrl by rememberSaveable(uiState.serverBaseUrl) { mutableStateOf(uiState.serverBaseUrl) }
+    var supabaseAnonKey by rememberSaveable(uiState.supabaseAnonKey) { mutableStateOf(uiState.supabaseAnonKey) }
+    val isSupabase = uiState.serverType == "supabase"
+    val context = LocalContext.current
+    var downloadId by remember { mutableLongStateOf(-1L) }
+
+    // Register download complete receiver
+    DisposableEffect(context) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
+                if (id == downloadId && downloadId != -1L) {
+                    val query = DownloadManager.Query().setFilterById(id)
+                    val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                    val cursor = dm.query(query)
+                    if (cursor.moveToFirst()) {
+                        val status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+                        if (status == DownloadManager.STATUS_SUCCESSFUL) {
+                            val uri = dm.getUriForDownloadedFile(id)
+                            if (uri != null) {
+                                val installIntent = Intent(Intent.ACTION_VIEW).apply {
+                                    setDataAndType(uri, "application/vnd.android.package-archive")
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                runCatching { context.startActivity(installIntent) }
+                            }
+                        }
+                    }
+                    cursor.close()
+                }
+            }
+        }
+        context.registerReceiver(receiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE))
+        onDispose { runCatching { context.unregisterReceiver(receiver) } }
+    }
 
     uiState.updateInfo?.let { updateInfo ->
         AlertDialog(
@@ -333,7 +391,15 @@ private fun LoginScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        uriHandler.openUri(updateInfo.downloadUrl)
+                        val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                        val request = DownloadManager.Request(Uri.parse(updateInfo.downloadUrl)).apply {
+                            setTitle("DumpDiary Update")
+                            setDescription("Downloading ${updateInfo.versionName}")
+                            setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "DumpDiary_update.apk")
+                            setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                        }
+                        downloadId = dm.enqueue(request)
+                        Toast.makeText(context, "Downloading update...", Toast.LENGTH_SHORT).show()
                         onDismissUpdate()
                     },
                 ) {
@@ -349,12 +415,80 @@ private fun LoginScreen(
     }
 
     AuthScreenContainer(title = stringResource(R.string.login)) {
+        // Server type selector
+        Row(modifier = Modifier.fillMaxWidth()) {
+            FilterChip(
+                selected = !isSupabase,
+                onClick = { onSetServerType("rest") },
+                label = { Text("DumpDiary Server") },
+                modifier = Modifier.weight(1f),
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            FilterChip(
+                selected = isSupabase,
+                onClick = { onSetServerType("supabase") },
+                label = { Text("Supabase") },
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+
         OutlinedTextField(
-            value = email,
-            onValueChange = { email = it },
-            label = { Text(stringResource(R.string.email)) },
+            value = serverBaseUrl,
+            onValueChange = { serverBaseUrl = it },
+            label = { Text(stringResource(R.string.server_address)) },
+            supportingText = { Text(stringResource(R.string.server_address_hint)) },
             modifier = Modifier.fillMaxWidth(),
         )
+        if (isSupabase) {
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = supabaseAnonKey,
+                onValueChange = { supabaseAnonKey = it },
+                label = { Text("Anon Key") },
+                supportingText = { Text("Supabase project anon key") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+        Button(
+            onClick = {
+                if (isSupabase) onValidateSupabaseServer(serverBaseUrl, supabaseAnonKey)
+                else onValidateServer(serverBaseUrl)
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.verify_and_save))
+        }
+        uiState.serverStatusMessage?.let { status ->
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = status,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (uiState.isServerValidating) {
+            Spacer(modifier = Modifier.height(8.dp))
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (isSupabase) {
+            OutlinedTextField(
+                value = username,
+                onValueChange = { username = it },
+                label = { Text("用户名") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        } else {
+            OutlinedTextField(
+                value = email,
+                onValueChange = { email = it },
+                label = { Text(stringResource(R.string.email)) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
         Spacer(modifier = Modifier.height(12.dp))
         OutlinedTextField(
             value = password,
@@ -363,10 +497,18 @@ private fun LoginScreen(
             modifier = Modifier.fillMaxWidth(),
         )
         Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = { onLogin(email, password) }, modifier = Modifier.fillMaxWidth()) {
+        Button(
+            onClick = {
+                if (isSupabase) onSupabaseLogin(username, password)
+                else onLogin(email, password)
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
             Text(stringResource(R.string.login))
         }
-        TextButton(onClick = onNavigateForgot) { Text(stringResource(R.string.forgot_password)) }
+        if (!isSupabase) {
+            TextButton(onClick = onNavigateForgot) { Text(stringResource(R.string.forgot_password)) }
+        }
         TextButton(onClick = onNavigateRegister) { Text(stringResource(R.string.register)) }
         if (uiState.isLoading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
     }
@@ -377,29 +519,58 @@ private fun RegisterScreen(
     uiState: AuthUiState,
     onSendCode: (String) -> Unit,
     onRegister: (String, String, String) -> Unit,
+    onSupabaseRegister: (String, String, String, String) -> Unit,
     onBack: () -> Unit,
 ) {
+    val isSupabase = uiState.serverType == "supabase"
     var email by rememberSaveable { mutableStateOf("") }
+    var username by rememberSaveable { mutableStateOf("") }
+    var nickname by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var confirmPassword by rememberSaveable { mutableStateOf("") }
     var code by rememberSaveable { mutableStateOf("") }
+    var matchCode by rememberSaveable { mutableStateOf("") }
     AuthScreenContainer(title = stringResource(R.string.register)) {
-        OutlinedTextField(
-            value = email,
-            onValueChange = { email = it },
-            label = { Text(stringResource(R.string.email)) },
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (isSupabase) {
             OutlinedTextField(
-                value = code,
-                onValueChange = { code = it },
-                label = { Text(stringResource(R.string.verification_code)) },
-                modifier = Modifier.weight(1f),
+                value = username,
+                onValueChange = { username = it },
+                label = { Text("用户名") },
+                modifier = Modifier.fillMaxWidth(),
             )
-            Button(onClick = { onSendCode(email) }, modifier = Modifier.align(Alignment.CenterVertically)) {
-                Text(stringResource(R.string.send_code))
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = nickname,
+                onValueChange = { nickname = it },
+                label = { Text("昵称（可选）") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = matchCode,
+                onValueChange = { matchCode = it },
+                label = { Text("配对码（可选）") },
+                supportingText = { Text("相同配对码的用户可共享数据") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        } else {
+            OutlinedTextField(
+                value = email,
+                onValueChange = { email = it },
+                label = { Text(stringResource(R.string.email)) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = code,
+                    onValueChange = { code = it },
+                    label = { Text(stringResource(R.string.verification_code)) },
+                    modifier = Modifier.weight(1f),
+                )
+                Button(onClick = { onSendCode(email) }, modifier = Modifier.align(Alignment.CenterVertically)) {
+                    Text(stringResource(R.string.send_code))
+                }
             }
         }
         Spacer(modifier = Modifier.height(12.dp))
@@ -418,7 +589,12 @@ private fun RegisterScreen(
         )
         Spacer(modifier = Modifier.height(16.dp))
         Button(
-            onClick = { if (password == confirmPassword) onRegister(email, password, code) },
+            onClick = {
+                if (password == confirmPassword) {
+                    if (isSupabase) onSupabaseRegister(username, password, nickname, matchCode)
+                    else onRegister(email, password, code)
+                }
+            },
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text(stringResource(R.string.register))
@@ -492,17 +668,20 @@ private fun AuthScreenContainer(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(24.dp),
+            .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center,
     ) {
         Card(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
             shape = RoundedCornerShape(28.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         ) {
             Column(
-                modifier = Modifier.padding(24.dp),
+                modifier = Modifier
+                    .padding(24.dp)
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
@@ -2016,11 +2195,13 @@ private fun SettingsScreen(
     onUploadAvatar: (Uri) -> Unit,
     onExportLogs: (Uri) -> Unit,
     onImportLogs: (Uri) -> Unit,
+    onValidateAndSwitchServer: (String) -> Unit,
     onLanguageChange: (String) -> Unit,
     onLogout: () -> Unit,
     onBack: () -> Unit,
 ) {
     var nickname by rememberSaveable(state.profile?.displayName) { mutableStateOf(state.profile?.displayName.orEmpty()) }
+    var serverBaseUrl by rememberSaveable(settingsState.serverBaseUrl) { mutableStateOf(settingsState.serverBaseUrl) }
     val avatarLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) onUploadAvatar(uri)
     }
@@ -2096,6 +2277,51 @@ private fun SettingsScreen(
                 }
             }
             item {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(24.dp),
+                    color = Color.White,
+                    tonalElevation = 3.dp,
+                    shadowElevation = 6.dp,
+                ) {
+                    Column(
+                        modifier = Modifier.padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.server_address),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = settingsState.serverBaseUrl.ifBlank { stringResource(R.string.server_not_configured) },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        OutlinedTextField(
+                            value = serverBaseUrl,
+                            onValueChange = { serverBaseUrl = it },
+                            label = { Text(stringResource(R.string.server_address)) },
+                            supportingText = { Text(stringResource(R.string.server_switch_hint)) },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        FilledTonalButton(
+                            onClick = { onValidateAndSwitchServer(serverBaseUrl) },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(stringResource(R.string.verify_and_switch))
+                        }
+                        settingsState.serverStatusMessage?.let { status ->
+                            Text(
+                                text = status,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+            item {
                 Text(stringResource(R.string.language), style = MaterialTheme.typography.titleMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = { onLanguageChange("zh-CN") }) { Text("中文") }
@@ -2154,7 +2380,7 @@ private fun SettingsScreen(
                 }
             }
             item {
-                if (settingsState.isLoading) {
+                if (settingsState.isLoading || settingsState.isServerValidating) {
                     LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                 }
             }

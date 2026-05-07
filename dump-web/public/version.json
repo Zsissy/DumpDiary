@@ -1,0 +1,6 @@
+{
+  "versionCode": 3,
+  "versionName": "1.2",
+  "downloadUrl": "https://zsissy.github.io/DumpDiary/app-debug.apk",
+  "notes": "新增自动更新功能，修复登录页面滚动问题"
+}
